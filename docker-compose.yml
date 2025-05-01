@@ -1,0 +1,105 @@
+version: '3.8'
+
+services:
+  nest-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"  # Usando porta 3001 como configurado anteriormente
+    environment:
+      - PORT=3001
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318/v1/traces  # URL completa
+      - OTEL_SERVICE_NAME=nest-app
+    networks:
+      - monitoring
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_started
+      tempo:
+        condition: service_started  # Garantir que o Tempo esteja pronto
+    healthcheck:  # Adicionar healthcheck para garantir que a app inicie corretamente
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    user: "0" # Executar como root para evitar problemas de permissão
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo.yaml
+      - tempo_data:/tmp/tempo
+    ports:
+      - "3200:3200"  # tempo
+      - "4318:4318"  # otlp http
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3030:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
+    networks:
+      - monitoring
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - tempo
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  postgres_data:
+  tempo_data:
