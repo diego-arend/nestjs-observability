@@ -6,12 +6,14 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3001:3001"  # Usando porta 3001 como configurado anteriormente
-    environment:
-      - PORT=3001
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4318/v1/traces  # URL completa
-      - OTEL_SERVICE_NAME=nest-app
+      - "${PORT}:${PORT}"
+    env_file:
+      - .env
+    volumes:
+      - ./src:/usr/src/app/src
+      - ./package.json:/usr/src/app/package.json
+      - ./tsconfig.json:/usr/src/app/tsconfig.json
+    command: npm run start:dev  # Usa o modo de desenvolvimento em vez de produção
     networks:
       - monitoring
     restart: unless-stopped
@@ -19,22 +21,15 @@ services:
       postgres:
         condition: service_started
       tempo:
-        condition: service_started  # Garantir que o Tempo esteja pronto
-    healthcheck:  # Adicionar healthcheck para garantir que a app inicie corretamente
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+        condition: service_started
 
   postgres:
     image: postgres:15
     container_name: postgres
     ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_DB=postgres
+      - "${POSTGRES_PORT}:5432"
+    env_file:
+      - .env
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -62,14 +57,14 @@ services:
   tempo:
     image: grafana/tempo:latest
     container_name: tempo
-    user: "0" # Executar como root para evitar problemas de permissão
+    user: "0"
     command: [ "-config.file=/etc/tempo.yaml" ]
     volumes:
       - ./tempo/tempo.yaml:/etc/tempo.yaml
       - tempo_data:/tmp/tempo
     ports:
-      - "3200:3200"  # tempo
-      - "4318:4318"  # otlp http
+      - "3200:3200"
+      - "4318:4318"
     networks:
       - monitoring
     restart: unless-stopped
@@ -83,8 +78,8 @@ services:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
     networks:

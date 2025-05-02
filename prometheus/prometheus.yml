@@ -6,4 +6,4 @@ scrape_configs:
   - job_name: 'nestjs'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['nest-app:3000']
+      - targets: ['nest-app:3001']
