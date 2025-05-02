@@ -25,8 +25,8 @@ GET http://localhost:3001/users
 ### Buscar um usuário específico - este endpoint interagirá com o PostgreSQL
 GET http://localhost:3001/users/1
 
-### Teste de carga - executar várias vezes para gerar métricas
-GET http://localhost:3001/
+### Rota com latência simulada
+GET http://localhost:3001/users/simulate-latency
 
 ### Testar as outras chamadas em sequência para visualizar no Grafana
 # Você pode enviar essas requisições repetidamente para gerar dados significativos no dashboard

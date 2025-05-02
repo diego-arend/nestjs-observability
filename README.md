@@ -65,6 +65,7 @@ Rastreamento detalhado de operações, permitindo visualizar:
 - `POST /users`: Cria um novo usuário (integração com PostgreSQL)
 - `GET /users`: Lista todos os usuários
 - `GET /users/:id`: Busca um usuário específico
+- `GET /users/simulate-latency`: Simula uma consulta lenta ao banco de dados com delay de 700ms
 
 ## Configuração e Execução
 
@@ -106,6 +107,15 @@ docker-compose logs -f
 ## Testando a Aplicação
 
 Utilize o arquivo de requisições HTTP localizado em `http_docs/app.http` para testar os endpoints da aplicação. Execute várias chamadas para gerar dados significativos nos dashboards de monitoramento.
+
+### Testando o Monitoramento de Latência
+
+Para validar o funcionamento do painel de monitoramento de requisições lentas:
+
+1. Execute várias chamadas ao endpoint de simulação de latência:
+   ```http
+   GET http://localhost:3001/users/simulate-latency
+   ```
 
 ## Utilizando o Tempo com Grafana
 
@@ -187,11 +197,20 @@ Nossa aplicação inclui um dashboard personalizado no Grafana para visualizaç�
    - Total de erros e eventos
    - Distribuição de erros por tipo
    - Panel de tracing integrado
+   - **Monitoramento de requisições lentas** (>500ms)
 
 4. Para acessar o tracing a partir do dashboard:
    - Clique em qualquer ponto dos gráficos de requisições
    - Use a opção "Explore" no menu de contexto
    - Selecione "Tempo" como fonte de dados para ver as traces relacionadas
+
+5. Para identificar requisições com latência acima de 500ms, utilizamos a seguinte query PromQL:
+sum by(path, method) ( rate(http_request_duration_seconds_bucket{le="+Inf"}[5m]) - rate(http_request_duration_seconds_bucket{le="0.5"}[5m]) )
+Esta consulta:
+- Calcula a diferença entre todas as requisições (`le="+Inf"`) e aquelas abaixo de 500ms (`le="0.5"`)
+- Resulta apenas nas requisições lentas (>500ms)
+- Agrupa por rota (`path`) e método HTTP (`method`)
+- Permite identificar rapidamente quais endpoints estão apresentando problemas de performance
 
 ### 5. Correlacionando Métricas e Traces
 
@@ -202,6 +221,37 @@ Um dos recursos mais poderosos é a capacidade de correlacionar métricas e trac
 3. Use "Explore" com fonte de dados "Tempo"
 4. Busque traces no mesmo intervalo de tempo
 5. Examine as traces para identificar a causa raiz do problema
+
+### Buscando por TraceID Específico no Tempo
+
+Para facilitar a busca de uma requisição específica no Tempo, cada resposta da API inclui um cabeçalho `X-Trace-ID`. Este identificador é gerado automaticamente pelo sistema de tracing e pode ser usado para localizar exatamente essa requisição no Grafana/Tempo:
+
+1. Execute uma chamada à API usando o arquivo `http_docs/app.http`
+2. Observe o cabeçalho `X-Trace-ID` na resposta
+3. No Grafana, navegue até Explore > Tempo
+4. Cole o TraceID no campo "Search by TraceID"
+5. Clique em "Run Query"
+
+Isso exibirá apenas a trace específica dessa requisição, facilitando o diagnóstico de problemas ou a análise detalhada de uma chamada particular.
+
+#### Exemplo com cURL
+
+```bash
+# Fazer uma requisição e capturar o X-Trace-ID
+curl -i http://localhost:3001/users
+
+# A resposta incluirá um cabeçalho como:
+# X-Trace-ID: 4bf92f3577b34da6a3ce929d0e0e4736
+```
+
+Esta abordagem é mais adequada porque:
+
+1. Não obriga o usuário a gerar e enviar um TraceID
+2. Aproveita o ID de trace que já está sendo gerado internamente pelo OpenTelemetry
+3. Permite que o usuário identifique facilmente o TraceID de cada requisição
+4. Mantém a consistência com as práticas recomendadas de observabilidade
+
+Com estas modificações, seus usuários poderão facilmente correlacionar as requisições que fazem com os traces correspondentes no sistema de observabilidade.
 
 ## Desenvolvimento Local
 

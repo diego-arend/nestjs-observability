@@ -8,6 +8,8 @@ import { MetricsInterceptor } from './interceptors/metrics.interceptor';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
 import { getTypeOrmConfig } from './providers/database/datasource';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { TraceIdInterceptor } from './interceptors/trace-id.interceptor';
 
 @Module({
   imports: [
@@ -22,6 +24,13 @@ import { getTypeOrmConfig } from './providers/database/datasource';
     UsersModule,
   ],
   controllers: [AppController],
-  providers: [AppService, MetricsInterceptor],
+  providers: [
+    AppService,
+    MetricsInterceptor,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TraceIdInterceptor,
+    },
+  ],
 })
 export class AppModule {}

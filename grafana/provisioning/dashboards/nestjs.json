@@ -417,6 +417,143 @@
         "align": false,
         "alignLevel": null
       }
+    },
+    {
+      "title": "Top Rotas com Alta Latência",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 9,
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Latência p95 (ms)"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.95, sum by(le, path, method) (rate(http_request_duration_seconds_bucket[5m])))",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "type": "table",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Latência p95 (ms)"
+              },
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 300
+                    },
+                    {
+                      "color": "red",
+                      "value": 500
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.transform",
+                "value": "multiply(1000)"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "path"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Rota"
+              },
+              {
+                "id": "custom.width",
+                "value": 250
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "method"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Método"
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "le"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "description": "Classifica as rotas por tempo de resposta (percentil 95)"
     }
   ],
   "refresh": "5s",
