@@ -7,6 +7,7 @@ import { LoggerModule } from './logger/logger.module';
 import { MetricsInterceptor } from './interceptors/metrics.interceptor';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
+import { getTypeOrmConfig } from './providers/database/datasource';
 
 @Module({
   imports: [
@@ -14,12 +15,7 @@ import { UsersModule } from './users/users.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        url: configService.get('DATABASE_URL'),
-        autoLoadEntities: true,
-        synchronize: true, // Apenas para desenvolvimento
-      }),
+      useFactory: getTypeOrmConfig,
     }),
     MetricsModule,
     LoggerModule,
