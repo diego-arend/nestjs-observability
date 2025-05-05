@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entity/user.entity';
@@ -11,9 +15,39 @@ export class UsersService {
     private usersRepository: Repository<User>,
   ) {}
 
-  create(createUserDto: CreateUserDto) {
-    const user = this.usersRepository.create(createUserDto);
-    return this.usersRepository.save(user);
+  async create(createUserDto: CreateUserDto) {
+    try {
+      // Verificar se já existe usuário com este email
+      const existingUser = await this.usersRepository.findOne({
+        where: { email: createUserDto.email },
+      });
+
+      if (existingUser) {
+        throw new ConflictException(
+          `Usuário com email ${createUserDto.email} já existe`,
+        );
+      }
+
+      // Se não existir, criar o novo usuário
+      const user = this.usersRepository.create(createUserDto);
+      return await this.usersRepository.save(user);
+    } catch (error) {
+      // Tratamento específico para violação de constraint unique
+      if (error.code === '23505') {
+        // Código do PostgreSQL para unique violation
+        throw new ConflictException(
+          `Usuário com email ${createUserDto.email} já existe`,
+        );
+      }
+
+      // Se não for um erro de duplicidade, repassar o erro
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+
+      // Tratamento genérico para outros erros
+      throw new InternalServerErrorException('Erro ao criar usuário');
+    }
   }
 
   findAll() {

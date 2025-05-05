@@ -5,7 +5,9 @@ import { Counter } from 'prom-client';
 import { LoggerService } from './logger/logger.service';
 import { CreateUserDto } from './users/dto/create-user.dto';
 import { UsersService } from './users/users.service';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
+@ApiTags('metrics')
 @Controller()
 export class AppController {
   constructor(
@@ -16,14 +18,24 @@ export class AppController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Endpoint principal da API' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retorna uma mensagem de boas-vindas',
+  })
   getHello(): string {
-    // Corrigido: usar labels que correspondem aos definidos em metrics.providers.ts
     this.counter.inc({ method: 'GET', path: '/', statusCode: '200' });
     this.logger.log('Endpoint getHello called', 'AppController');
     return this.appService.getHello();
   }
 
   @Get('error-demo')
+  @ApiOperation({
+    summary: 'Simular erro',
+    description:
+      'Endpoint que simula e registra erros para demonstração de métricas',
+  })
+  @ApiResponse({ status: 500, description: 'Erro simulado' })
   triggerError(): string {
     try {
       // Simulando um erro
@@ -40,6 +52,12 @@ export class AppController {
   }
 
   @Get('event-demo')
+  @ApiOperation({
+    summary: 'Registrar evento personalizado',
+    description:
+      'Endpoint que registra eventos personalizados para demonstração de métricas',
+  })
+  @ApiResponse({ status: 200, description: 'Evento registrado com sucesso' })
   triggerEvent(): string {
     this.logger.recordEvent('custom_business_event', 'success');
     return 'Event recorded';

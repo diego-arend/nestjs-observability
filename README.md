@@ -253,6 +253,19 @@ Esta abordagem é mais adequada porque:
 
 Com estas modificações, seus usuários poderão facilmente correlacionar as requisições que fazem com os traces correspondentes no sistema de observabilidade.
 
+### Documentação da API (Swagger)
+
+A documentação interativa da API está disponível através do Swagger UI:
+
+- URL: http://localhost:3001/api-docs
+- Permite testar todos os endpoints diretamente pelo navegador
+- Documenta parâmetros, corpo das requisições e respostas
+- Facilita a integração para desenvolvedores
+
+Para acessar:
+1. Inicie a aplicação com `docker-compose up -d`
+2. Navegue para http://localhost:3001/api-docs no seu navegador
+
 ## Desenvolvimento Local
 
 ```bash
