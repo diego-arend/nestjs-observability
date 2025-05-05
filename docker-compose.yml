@@ -6,14 +6,14 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${PORT}:${PORT}"
+      - '${PORT}:${PORT}'
     env_file:
       - .env
     volumes:
       - ./src:/usr/src/app/src
       - ./package.json:/usr/src/app/package.json
       - ./tsconfig.json:/usr/src/app/tsconfig.json
-    command: npm run start:dev  # Usa o modo de desenvolvimento em vez de produção
+    command: npm run start:dev # Usa o modo de desenvolvimento em vez de produção
     networks:
       - monitoring
     restart: unless-stopped
@@ -27,9 +27,11 @@ services:
     image: postgres:15
     container_name: postgres
     ports:
-      - "${POSTGRES_PORT}:5432"
-    env_file:
-      - .env
+      - '${POSTGRES_PORT}:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -40,7 +42,7 @@ services:
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
-      - "9090:9090"
+      - '9090:9090'
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
@@ -57,14 +59,14 @@ services:
   tempo:
     image: grafana/tempo:latest
     container_name: tempo
-    user: "0"
-    command: [ "-config.file=/etc/tempo.yaml" ]
+    user: '0'
+    command: ['-config.file=/etc/tempo.yaml']
     volumes:
       - ./tempo/tempo.yaml:/etc/tempo.yaml
       - tempo_data:/tmp/tempo
     ports:
-      - "3200:3200"
-      - "4318:4318"
+      - '3200:3200'
+      - '4318:4318'
     networks:
       - monitoring
     restart: unless-stopped
@@ -73,7 +75,7 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     ports:
-      - "3030:3000"
+      - '3030:3000'
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning

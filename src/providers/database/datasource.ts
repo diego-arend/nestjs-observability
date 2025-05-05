@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSource, DataSourceOptions } from 'typeorm';
+import { join } from 'path';
 
 /**
  * Configuração do TypeORM usando ConfigService
@@ -10,6 +11,8 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 export const getTypeOrmConfig = (
   configService: ConfigService,
 ): TypeOrmModuleOptions => {
+  const isProduction = configService.get('NODE_ENV') === 'production';
+  
   return {
     type: 'postgres',
     host: configService.get('POSTGRES_HOST'),
@@ -18,29 +21,39 @@ export const getTypeOrmConfig = (
     password: configService.get('POSTGRES_PASSWORD'),
     database: configService.get('POSTGRES_DB'),
     autoLoadEntities: true,
-    synchronize: configService.get('NODE_ENV') !== 'production',
-    logging:
-      configService.get('NODE_ENV') !== 'production'
-        ? ['error', 'warn']
-        : false,
+    synchronize: false, // Desabilitamos o synchronize para usar migrações
+    migrationsRun: true, // Executa migrações automaticamente ao iniciar
+    
+    // Importante: apontar apenas para arquivos .js compilados
+    migrations: [join(__dirname, '../../migrations/**/*.js')],
+    migrationsTableName: 'migrations_history',
+    
+    // Configurações mais detalhadas de logging
+    logging: isProduction 
+      ? ['error', 'warn', 'migration'] 
+      : ['error', 'warn', 'migration', 'query'],
     logger: 'advanced-console',
-    ssl: configService.get('NODE_ENV') === 'production',
+    
+    // Configurações de resiliência
+    retryAttempts: 5,
+    retryDelay: 3000,
   };
 };
 
 /**
- * Criação do DataSource para migrations e comandos CLI
- * Utilizado pelo CLI do TypeORM para gerenciamento de migrations
+ * DataSource para o CLI do TypeORM
+ * Usado apenas para comandos de migração
  */
 export const AppDataSource = new DataSource({
   type: 'postgres',
-  host: process.env.POSTGRES_HOST,
-  port: parseInt(process.env.POSTGRES_PORT, 10) || 5432,
-  username: process.env.POSTGRES_USER,
-  password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DB,
-  entities: ['dist/**/*.entity{.ts,.js}'],
-  migrations: ['dist/migrations/*{.ts,.js}'],
+  host: process.env.POSTGRES_HOST || 'localhost',
+  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+  username: process.env.POSTGRES_USER || 'postgres',
+  password: process.env.POSTGRES_PASSWORD || 'postgres',
+  database: process.env.POSTGRES_DB || 'postgres',
+  
+  // Para CLI: usar arquivos TypeScript
+  entities: ['src/**/*.entity.ts'],
+  migrations: ['src/migrations/**/*.ts'],
   migrationsTableName: 'migrations_history',
-  ssl: process.env.NODE_ENV === 'production',
-} as DataSourceOptions);
+});

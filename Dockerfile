@@ -3,7 +3,7 @@ FROM node:20-alpine
 WORKDIR /usr/src/app
 
 # Instalar ferramentas necessárias
-RUN apk add --no-cache wget
+RUN apk add --no-cache wget bash
 
 # Copiar arquivos de configuração primeiro (melhor para cache)
 COPY package*.json tsconfig*.json ./
