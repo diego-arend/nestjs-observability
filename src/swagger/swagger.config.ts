@@ -11,24 +11,60 @@ import { enhanceUsersSwaggerDocs } from '../modules/users/documentation/users.sw
 export function setupSwagger(app: INestApplication): OpenAPIObject {
   // Configuração básica do Swagger
   const config = new DocumentBuilder()
-    .setTitle('NestJS Observability API')
+    .setTitle('API de Gerenciamento de Usuários')
     .setDescription(
-      'API com monitoramento completo: Prometheus, Grafana e Tempo',
+      'API para criação, consulta e atualização de usuários no sistema',
     )
     .setVersion('1.0')
-    .addTag('metrics', 'Endpoints relacionados a métricas e observabilidade')
-    .addTag('users', 'Operações de usuários')
-    .addBearerAuth()
+    .addTag('users', 'Gerenciamento de usuários')
     .build();
 
-  // Gerar o documento base
+  // Gerar o documento base sem especificar módulos a incluir
+  // Desta forma, todos os endpoints são documentados inicialmente
   const document = SwaggerModule.createDocument(app, config);
 
-  // Aprimorar a documentação com informações específicas dos módulos
+  // Aprimorar a documentação com informações específicas de usuários
   enhanceUsersSwaggerDocs(document);
 
-  // Configurar o endpoint do Swagger
-  SwaggerModule.setup('api-docs', app, document);
+  // Filtrar endpoints não relacionados a usuários
+  filterInternalEndpoints(document);
+
+  // Configurar o endpoint do Swagger com opções personalizadas
+  SwaggerModule.setup('api-docs', app, document, {
+    swaggerOptions: {
+      docExpansion: 'list',
+      defaultModelsExpandDepth: 1,
+      defaultModelExpandDepth: 1,
+      filter: true,
+      tagsSorter: 'alpha',
+      operationsSorter: 'method',
+    },
+  });
 
   return document;
+}
+
+/**
+ * Remove endpoints que não estão relacionados ao módulo de usuários
+ */
+function filterInternalEndpoints(document: OpenAPIObject) {
+  // Lista de caminhos que não devemos incluir na documentação
+  const internalPathsPatterns = ['/health', '/metrics', '/healthcheck'];
+
+  // Remover paths internos
+  if (document.paths) {
+    Object.keys(document.paths).forEach((path) => {
+      if (
+        internalPathsPatterns.some((pattern) => path.startsWith(pattern)) ||
+        !path.startsWith('/users')
+      ) {
+        delete document.paths[path];
+      }
+    });
+  }
+
+  // Manter apenas a tag 'users'
+  if (document.tags) {
+    document.tags = document.tags.filter((tag) => tag.name === 'users');
+  }
 }

@@ -8,15 +8,10 @@ import {
   ParseIntPipe,
   Logger,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import {
-  USER_API_OPERATIONS,
-  USER_API_PARAMS,
-  USER_API_RESPONSES,
-} from './documentation/users.document';
 import { NotFoundException } from '../../exceptions/custom-exceptions';
 
 @ApiTags('users')
@@ -27,11 +22,6 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @ApiOperation(USER_API_OPERATIONS.CREATE_USER)
-  @ApiResponse(USER_API_RESPONSES.CREATE_SUCCESS)
-  @ApiResponse(USER_API_RESPONSES.BAD_REQUEST)
-  @ApiResponse(USER_API_RESPONSES.CONFLICT)
-  @ApiResponse(USER_API_RESPONSES.INTERNAL_SERVER_ERROR)
   async create(@Body() createUserDto: CreateUserDto) {
     this.logger.log(`Criando usuário com email: ${createUserDto.email}`);
     const result = await this.usersService.create(createUserDto);
@@ -40,9 +30,6 @@ export class UsersController {
   }
 
   @Get()
-  @ApiOperation(USER_API_OPERATIONS.FIND_ALL)
-  @ApiResponse(USER_API_RESPONSES.FIND_ALL_SUCCESS)
-  @ApiResponse(USER_API_RESPONSES.INTERNAL_SERVER_ERROR)
   async findAll() {
     this.logger.log('Buscando todos os usuários');
     const users = await this.usersService.findAll();
@@ -51,11 +38,6 @@ export class UsersController {
   }
 
   @Get(':id')
-  @ApiOperation(USER_API_OPERATIONS.FIND_ONE)
-  @ApiParam(USER_API_PARAMS.ID)
-  @ApiResponse(USER_API_RESPONSES.FIND_ONE_SUCCESS)
-  @ApiResponse(USER_API_RESPONSES.NOT_FOUND)
-  @ApiResponse(USER_API_RESPONSES.INTERNAL_SERVER_ERROR)
   async findOne(@Param('id', ParseIntPipe) id: number) {
     this.logger.log(`Buscando usuário com ID: ${id}`);
     const user = await this.usersService.findOne(id);
@@ -70,13 +52,6 @@ export class UsersController {
   }
 
   @Put(':id')
-  @ApiOperation(USER_API_OPERATIONS.UPDATE_USER)
-  @ApiParam(USER_API_PARAMS.ID)
-  @ApiResponse(USER_API_RESPONSES.UPDATE_SUCCESS)
-  @ApiResponse(USER_API_RESPONSES.BAD_REQUEST)
-  @ApiResponse(USER_API_RESPONSES.NOT_FOUND)
-  @ApiResponse(USER_API_RESPONSES.CONFLICT)
-  @ApiResponse(USER_API_RESPONSES.INTERNAL_SERVER_ERROR)
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUserDto: UpdateUserDto,

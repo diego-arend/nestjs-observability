@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { MetricsModule } from './metrics/metrics.module';
 import { LoggerModule } from './logger/logger.module';
 import { MetricsInterceptor } from './interceptors/metrics.interceptor';
@@ -25,7 +24,6 @@ import { TraceIdInterceptor } from './interceptors/trace-id.interceptor';
   ],
   controllers: [AppController],
   providers: [
-    AppService,
     {
       provide: APP_INTERCEPTOR,
       useClass: MetricsInterceptor,

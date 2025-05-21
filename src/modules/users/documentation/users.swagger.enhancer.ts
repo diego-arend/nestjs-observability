@@ -1,13 +1,15 @@
-import { OpenAPIObject } from '@nestjs/swagger';
+import { OpenAPIObject, ApiOperationOptions } from '@nestjs/swagger';
 import {
   USER_RESPONSE_EXAMPLES,
   USER_ERROR_EXAMPLES,
   USER_API_OPERATIONS,
   USER_API_RESPONSES,
+  USER_API_PARAMS,
 } from './users.document';
 import {
   ResponseObject,
   ReferenceObject,
+  OperationObject,
 } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
 
 /**
@@ -19,13 +21,20 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
   // Certifique-se de que as propriedades necessárias existem
   if (!document.paths) return;
 
+  // Adicionar informações extras às tags
+  if (document.tags) {
+    const usersTag = document.tags.find((tag) => tag.name === 'users');
+    if (usersTag) {
+      usersTag.description = 'API para gerenciamento de usuários no sistema';
+    }
+  }
+
   // Aprimorar o endpoint POST /users
   if (document.paths['/users']) {
     // Adicionar exemplos detalhados para POST
     if (document.paths['/users'].post) {
       const postOp = document.paths['/users'].post;
-      postOp.summary = USER_API_OPERATIONS.CREATE_USER.summary;
-      postOp.description = USER_API_OPERATIONS.CREATE_USER.description;
+      enhanceOperation(postOp, USER_API_OPERATIONS.CREATE_USER);
 
       // Adicionar exemplo de request body
       if (postOp.requestBody && !('$ref' in postOp.requestBody)) {
@@ -33,9 +42,12 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
           postOp.requestBody.content &&
           postOp.requestBody.content['application/json']
         ) {
+          postOp.requestBody.description = 'Dados do usuário a ser criado';
+          postOp.requestBody.required = true;
           postOp.requestBody.content['application/json'].examples = {
             validUser: {
               summary: 'Usuário válido',
+              description: 'Exemplo de dados válidos para criação de usuário',
               value: {
                 name: 'João Silva',
                 email: 'joao.silva@exemplo.com',
@@ -43,6 +55,7 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
             },
             invalidUser: {
               summary: 'Usuário inválido (email incorreto)',
+              description: 'Este exemplo irá gerar um erro de validação',
               value: {
                 name: 'João Silva',
                 email: 'email-invalido',
@@ -52,7 +65,7 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
         }
       }
 
-      // Adicionar exemplos de respostas
+      // Adicionar exemplos de respostas usando ApiResponse
       if (postOp.responses) {
         // Resposta de sucesso
         enhanceResponse(
@@ -66,6 +79,14 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
           },
         );
 
+        // Garantir que todos os status codes esperados no service existam na documentação
+        // Primeiro verificar se já existe, e se não, adicionar
+        if (!postOp.responses['400']) {
+          postOp.responses['400'] = {
+            description: USER_API_RESPONSES.BAD_REQUEST.description,
+          };
+        }
+
         // Resposta de erro - Bad Request
         enhanceResponse(
           postOp.responses['400'],
@@ -78,7 +99,13 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
           },
         );
 
-        // Resposta de erro - Conflict
+        // Erro - Conflict (usuário já existe)
+        if (!postOp.responses['409']) {
+          postOp.responses['409'] = {
+            description: USER_API_RESPONSES.CONFLICT.description,
+          };
+        }
+
         enhanceResponse(
           postOp.responses['409'],
           USER_API_RESPONSES.CONFLICT.description,
@@ -90,11 +117,23 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
           },
         );
 
-        // Resposta de erro - Internal Server Error
+        // Erro interno - Diretamente do users.service.ts
+        if (!postOp.responses['500']) {
+          postOp.responses['500'] = {
+            description: USER_API_RESPONSES.INTERNAL_SERVER_ERROR.description,
+          };
+        }
+
         enhanceResponse(
           postOp.responses['500'],
           USER_API_RESPONSES.INTERNAL_SERVER_ERROR.description,
-          USER_ERROR_EXAMPLES.INTERNAL_SERVER_ERROR,
+          {
+            statusCode: 500,
+            message: 'Erro ao criar usuário',
+            error: 'Internal Server Error',
+            timestamp: new Date().toISOString(),
+            path: '/users',
+          },
           {
             summary: 'Erro no servidor',
             description:
@@ -103,60 +142,89 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
         );
       }
     }
-  }
 
-  // Aprimorar o endpoint GET /users
-  if (document.paths['/users'] && document.paths['/users'].get) {
-    const getOp = document.paths['/users'].get;
-    getOp.summary = USER_API_OPERATIONS.FIND_ALL.summary;
-    getOp.description = USER_API_OPERATIONS.FIND_ALL.description;
-    getOp.description +=
-      '\n\nEste endpoint retorna todos os usuários cadastrados na plataforma sem paginação.';
+    // GET /users (findAll)
+    if (document.paths['/users'].get) {
+      const getOp = document.paths['/users'].get;
+      enhanceOperation(getOp, USER_API_OPERATIONS.FIND_ALL);
+      getOp.description +=
+        '\n\nEste endpoint retorna todos os usuários cadastrados na plataforma sem paginação.';
 
-    if (getOp.responses) {
-      enhanceResponse(
-        getOp.responses['200'],
-        USER_API_RESPONSES.FIND_ALL_SUCCESS.description,
-        USER_RESPONSE_EXAMPLES.USER_LIST,
-        {
-          summary: 'Lista de usuários',
-          description:
-            'Retorna um array de usuários, que pode estar vazio se não houver registros',
-        },
-      );
-
-      // Adicionar exemplo de resposta vazia
-      if (
-        !('$ref' in getOp.responses['200']) &&
-        getOp.responses['200'].content &&
-        getOp.responses['200'].content['application/json']
-      ) {
-        getOp.responses['200'].content['application/json'].examples.emptyList =
+      if (getOp.responses) {
+        enhanceResponse(
+          getOp.responses['200'],
+          USER_API_RESPONSES.FIND_ALL_SUCCESS.description,
+          USER_RESPONSE_EXAMPLES.USER_LIST,
           {
+            summary: 'Lista de usuários',
+            description:
+              'Retorna um array de usuários, que pode estar vazio se não houver registros',
+          },
+        );
+
+        // Adicionar exemplo de resposta vazia
+        if (
+          !('$ref' in getOp.responses['200']) &&
+          getOp.responses['200'].content &&
+          getOp.responses['200'].content['application/json']
+        ) {
+          getOp.responses['200'].content[
+            'application/json'
+          ].examples.emptyList = {
             summary: 'Lista vazia',
             value: [],
             description: 'Quando não existem usuários cadastrados',
           };
+        }
+
+        // Erro interno - Diretamente do users.service.ts
+        if (!getOp.responses['500']) {
+          getOp.responses['500'] = {
+            description: USER_API_RESPONSES.INTERNAL_SERVER_ERROR.description,
+          };
+        }
+
+        enhanceResponse(
+          getOp.responses['500'],
+          USER_API_RESPONSES.INTERNAL_SERVER_ERROR.description,
+          {
+            statusCode: 500,
+            message: 'Erro ao buscar usuários',
+            error: 'Internal Server Error',
+            timestamp: new Date().toISOString(),
+            path: '/users',
+          },
+          {
+            summary: 'Erro no servidor',
+            description:
+              'Falha ao acessar o banco de dados para listar usuários',
+          },
+        );
       }
     }
   }
 
-  // Aprimorar o endpoint GET /users/{id}
+  // Aprimorar o endpoint GET /users/{id} (findOne)
   if (document.paths['/users/{id}'] && document.paths['/users/{id}'].get) {
     const getOneOp = document.paths['/users/{id}'].get;
-    getOneOp.summary = USER_API_OPERATIONS.FIND_ONE.summary;
-    getOneOp.description = USER_API_OPERATIONS.FIND_ONE.description;
+    enhanceOperation(getOneOp, USER_API_OPERATIONS.FIND_ONE);
     getOneOp.description +=
       '\n\nRetorna detalhes de um único usuário usando seu ID numérico.';
 
-    // Melhorar descrição do parâmetro de caminho
+    // Melhorar descrição do parâmetro de caminho (ApiParam)
     if (getOneOp.parameters && getOneOp.parameters.length > 0) {
       const idParam = getOneOp.parameters.find(
         (p) => !('$ref' in p) && p.name === 'id',
       );
       if (idParam && !('$ref' in idParam)) {
-        idParam.description = 'ID numérico único do usuário no banco de dados';
-        idParam.example = 1;
+        idParam.description = USER_API_PARAMS.ID.description;
+        idParam.example = USER_API_PARAMS.ID.example;
+        idParam.required = true;
+        idParam.schema = {
+          type: 'integer',
+          format: 'int32',
+          minimum: 1,
+        };
       }
     }
 
@@ -173,7 +241,13 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
         },
       );
 
-      // Resposta de erro - Not Found
+      // Erro - Not Found (NotFoundException no service)
+      if (!getOneOp.responses['404']) {
+        getOneOp.responses['404'] = {
+          description: USER_API_RESPONSES.NOT_FOUND.description,
+        };
+      }
+
       enhanceResponse(
         getOneOp.responses['404'],
         USER_API_RESPONSES.NOT_FOUND.description,
@@ -181,6 +255,8 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
           statusCode: 404,
           message: 'Usuário com ID 42 não encontrado',
           error: 'Not Found',
+          timestamp: new Date().toISOString(),
+          path: '/users/42',
         },
         {
           summary: 'Usuário não encontrado',
@@ -188,18 +264,40 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
             'Nenhum usuário com o ID fornecido foi encontrado no banco de dados',
         },
       );
+
+      // Erro interno - Diretamente do users.service.ts
+      if (!getOneOp.responses['500']) {
+        getOneOp.responses['500'] = {
+          description: USER_API_RESPONSES.INTERNAL_SERVER_ERROR.description,
+        };
+      }
+
+      enhanceResponse(
+        getOneOp.responses['500'],
+        USER_API_RESPONSES.INTERNAL_SERVER_ERROR.description,
+        {
+          statusCode: 500,
+          message: 'Erro ao buscar usuário com ID 42',
+          error: 'Internal Server Error',
+          timestamp: new Date().toISOString(),
+          path: '/users/42',
+        },
+        {
+          summary: 'Erro no servidor',
+          description: 'Falha ao acessar o banco de dados para buscar usuário',
+        },
+      );
     }
   }
 
-  // Aprimorar o endpoint PUT /users/{id}
+  // Aprimorar o endpoint PUT /users/{id} (update)
   if (document.paths['/users/{id}'] && document.paths['/users/{id}'].put) {
     const updateOp = document.paths['/users/{id}'].put;
-    updateOp.summary = USER_API_OPERATIONS.UPDATE_USER.summary;
-    updateOp.description = USER_API_OPERATIONS.UPDATE_USER.description;
+    enhanceOperation(updateOp, USER_API_OPERATIONS.UPDATE_USER);
     updateOp.description +=
       '\n\nAtualiza os dados de um usuário existente com validação dos mesmos campos usados na criação.';
 
-    // Melhorar descrição do parâmetro de caminho
+    // Melhorar descrição do parâmetro de caminho (ApiParam)
     if (updateOp.parameters && updateOp.parameters.length > 0) {
       const idParam = updateOp.parameters.find(
         (p) => !('$ref' in p) && p.name === 'id',
@@ -207,18 +305,28 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
       if (idParam && !('$ref' in idParam)) {
         idParam.description = 'ID numérico único do usuário a ser atualizado';
         idParam.example = 1;
+        idParam.required = true;
+        idParam.schema = {
+          type: 'integer',
+          format: 'int32',
+          minimum: 1,
+        };
       }
     }
 
-    // Adicionar exemplo de request body
+    // Adicionar exemplo de request body (ApiBody)
     if (updateOp.requestBody && !('$ref' in updateOp.requestBody)) {
       if (
         updateOp.requestBody.content &&
         updateOp.requestBody.content['application/json']
       ) {
+        updateOp.requestBody.description =
+          'Dados do usuário a serem atualizados';
+        updateOp.requestBody.required = true;
         updateOp.requestBody.content['application/json'].examples = {
           fullUpdate: {
             summary: 'Atualização completa',
+            description: 'Atualiza todos os campos do usuário',
             value: {
               name: 'João Silva Atualizado',
               email: 'joao.silva.novo@exemplo.com',
@@ -226,6 +334,7 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
           },
           partialUpdate: {
             summary: 'Atualização parcial (apenas nome)',
+            description: 'Atualiza apenas o nome do usuário, mantendo o email',
             value: {
               name: 'João Silva Atualizado',
             },
@@ -247,7 +356,13 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
         },
       );
 
-      // Resposta de erro - Bad Request
+      // Erro - Bad Request (validação)
+      if (!updateOp.responses['400']) {
+        updateOp.responses['400'] = {
+          description: USER_API_RESPONSES.BAD_REQUEST.description,
+        };
+      }
+
       enhanceResponse(
         updateOp.responses['400'],
         USER_API_RESPONSES.BAD_REQUEST.description,
@@ -259,7 +374,13 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
         },
       );
 
-      // Resposta de erro - Not Found
+      // Erro - Not Found (NotFoundException no service)
+      if (!updateOp.responses['404']) {
+        updateOp.responses['404'] = {
+          description: USER_API_RESPONSES.NOT_FOUND.description,
+        };
+      }
+
       enhanceResponse(
         updateOp.responses['404'],
         USER_API_RESPONSES.NOT_FOUND.description,
@@ -267,6 +388,8 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
           statusCode: 404,
           message: 'Usuário com ID 42 não encontrado',
           error: 'Not Found',
+          timestamp: new Date().toISOString(),
+          path: '/users/42',
         },
         {
           summary: 'Usuário não encontrado',
@@ -275,11 +398,23 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
         },
       );
 
-      // Resposta de erro - Conflict
+      // Erro - Conflict (ConflictException no service - email já usado)
+      if (!updateOp.responses['409']) {
+        updateOp.responses['409'] = {
+          description: USER_API_RESPONSES.CONFLICT.description,
+        };
+      }
+
       enhanceResponse(
         updateOp.responses['409'],
         USER_API_RESPONSES.CONFLICT.description,
-        USER_ERROR_EXAMPLES.CONFLICT,
+        {
+          statusCode: 409,
+          message: 'Usuário com email joao.silva.novo@exemplo.com já existe',
+          error: 'Conflict',
+          timestamp: new Date().toISOString(),
+          path: '/users/42',
+        },
         {
           summary: 'Email já existente',
           description:
@@ -287,11 +422,23 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
         },
       );
 
-      // Resposta de erro - Internal Server Error
+      // Erro interno - Diretamente do users.service.ts
+      if (!updateOp.responses['500']) {
+        updateOp.responses['500'] = {
+          description: USER_API_RESPONSES.INTERNAL_SERVER_ERROR.description,
+        };
+      }
+
       enhanceResponse(
         updateOp.responses['500'],
         USER_API_RESPONSES.INTERNAL_SERVER_ERROR.description,
-        USER_ERROR_EXAMPLES.INTERNAL_SERVER_ERROR,
+        {
+          statusCode: 500,
+          message: 'Erro ao atualizar usuário com ID 42',
+          error: 'Internal Server Error',
+          timestamp: new Date().toISOString(),
+          path: '/users/42',
+        },
         {
           summary: 'Erro no servidor',
           description:
@@ -299,6 +446,22 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
         },
       );
     }
+  }
+}
+
+/**
+ * Aprimora uma operação com informações consistentes
+ */
+function enhanceOperation(
+  operation: OperationObject,
+  apiOpOptions: ApiOperationOptions,
+): void {
+  operation.summary = apiOpOptions.summary;
+  operation.description = apiOpOptions.description;
+
+  // Adicionar tags adicionais se necessário
+  if (!operation.tags || operation.tags.length === 0) {
+    operation.tags = ['users'];
   }
 }
 
