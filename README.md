@@ -1,291 +1,185 @@
-# NestJS com Monitoramento Completo: Prometheus, Grafana e Tempo
+# NestJS Observability
 
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+Uma aplicação NestJS demonstrando práticas avançadas de observabilidade com Prometheus, Grafana e OpenTelemetry.
 
-## Descrição
+## Detalhes de Arquitetura
 
-Este projeto demonstra a implementação de um sistema completo de observabilidade utilizando NestJS como framework base, integrado com Prometheus para métricas, Grafana para visualização e Tempo para tracing distribuído.
+### Sistema de Observabilidade
 
-A aplicação possui:
-- Endpoints REST para demonstração de funcionalidades
-- Integração com PostgreSQL para armazenamento de dados
-- Sistema completo de métricas e logs
-- Tracing distribuído para visualização de operações end-to-end
-- Dashboard customizado para monitoramento em tempo real
+A aplicação implementa uma arquitetura abrangente de observabilidade seguindo os três pilares: métricas, logs e traces. A solução foi projetada para minimizar o código boilerplate nos controllers enquanto mantém coleta consistente de dados.
 
-## Recursos Principais
+#### Interceptors Globais
 
-- **API RESTful**: Construída com NestJS para alta performance e modularidade
-- **Métricas com Prometheus**: Coleta automática de métricas de performance 
-- **Visualização com Grafana**: Dashboards personalizados para monitoramento
-- **Tracing com Tempo**: Visualização detalhada do fluxo de requisições
-- **Persistência com PostgreSQL**: Armazenamento de dados em banco relacional
+##### MetricsInterceptor
 
-## Estrutura do Projeto
+O `MetricsInterceptor` captura métricas globalmente para todas as requisições HTTP:
 
-- `/src`: Código-fonte da aplicação NestJS
-- `/grafana`: Configurações e dashboards do Grafana
-- `/prometheus`: Configuração do Prometheus
-- `/tempo`: Configuração do Tempo para tracing
-- `/http_docs`: Documentação das chamadas HTTP para teste
+- **Coleta Automática**: Intercepta todas as requisições que passam pelo NestJS
+- **Filtragem Inteligente**: Ignora endpoints de health check e monitoramento via `shouldSkipMonitoring()`
+- **Métricas Registradas**:
+  - `http_requests_total`: Contador com labels para método, caminho e código de status
+  - `http_request_duration_seconds`: Histograma que mede latências de requisições
 
-## Monitoramento e Observabilidade
-
-### Métricas (Prometheus)
-O projeto coleta automaticamente métricas como:
-- Contador de requisições HTTP por endpoint e código de status
-- Duração de requisições HTTP
-- Eventos personalizados da aplicação
-- Contador de erros por tipo
-- Métricas do sistema operacional e runtime Node.js
-
-### Visualização (Grafana)
-Dashboards customizados para visualização de:
-- Taxa de requisições por minuto
-- Tempo de resposta (percentil 95)
-- Contagem de erros por tipo
-- Eventos de sucesso da aplicação
-- Saúde geral do sistema
-
-### Tracing Distribuído (Tempo)
-Rastreamento detalhado de operações, permitindo visualizar:
-- Fluxo completo de requisições desde o frontend até o banco de dados
-- Duração precisa de cada operação
-- Detalhamento de consultas SQL
-- Identificação de gargalos de performance
-
-## Endpoints Disponíveis
-
-- `GET /`: Hello World e métricas básicas
-- `GET /error-demo`: Simula e registra erros para demonstração de métricas
-- `GET /event-demo`: Registra eventos personalizados
-- `GET /metrics`: Retorna todas as métricas coletadas (Prometheus)
-- `POST /users`: Cria um novo usuário (integração com PostgreSQL)
-- `GET /users`: Lista todos os usuários
-- `GET /users/:id`: Busca um usuário específico
-- `GET /users/simulate-latency`: Simula uma consulta lenta ao banco de dados com delay de 700ms
-
-## Configuração e Execução
-
-### Pré-requisitos
-- Docker e Docker Compose
-- Node.js 16+ (para desenvolvimento local)
-- NPM ou Yarn
-
-### Instalação
-
-```bash
-# Clonar o repositório
-git clone <repositório>
-
-# Instalar dependências
-npm install
+```typescript
+// Incrementa o contador e registra duração para requisições bem-sucedidas
+this.requestCounter.inc({ method, path, statusCode });
+this.requestDuration.observe({ method, path, statusCode }, duration);
 ```
 
-### Executando com Docker Compose
+##### TraceIdInterceptor
 
-```bash
-# Iniciar todos os serviços
-docker-compose up -d
+O `TraceIdInterceptor` implementa distributed tracing para rastreabilidade entre serviços:
 
-# Verificar logs
-docker-compose logs -f
+- **IDs Únicos**: Gera ou reutiliza IDs de trace para cada requisição
+- **Propagação**: Inclui o trace ID nos headers de resposta e contexto para logs
+- **Correlação**: Permite vincular logs, métricas e spans de uma mesma transação
+
+#### Separação de Responsabilidades
+
+A arquitetura separa claramente as responsabilidades:
+
+1. **Interceptors**: Responsáveis por métricas técnicas e coleta de traces
+2. **Controllers**: Focam na lógica de negócio e logs contextuais
+3. **Filtros Compartilhados**: Garantem consistência em quais endpoints são monitorados
+
+#### Integração com OpenTelemetry
+
+O sistema de tracing utiliza OpenTelemetry para integração com ferramentas como Jaeger ou Tempo:
+
+- **Auto-instrumentação**: Captura automática de traces para HTTP, Express e NestJS
+- **Filtros Customizados**: Configura quais endpoints devem ser rastreados
+- **Exportação Configurável**: Envia traces para coletores OTLP (OpenTelemetry Protocol)
+
+#### Abordagem de Logging
+
+Os logs são estruturados e contêm informações contextuais:
+
+```typescript
+// Exemplo do UsersController
+this.logger.log(`Criando usuário com email: ${createUserDto.email}`);
+this.logger.log(`Usuário criado com sucesso: ID=${result.id}`);
 ```
 
-### Acessando os Serviços
+Estes logs complementam as métricas e traces, fornecendo contexto de negócio que facilita a resolução de problemas.
 
-| Serviço     | URL                      | Credenciais      |
-|-------------|--------------------------|------------------|
-| NestJS API  | http://localhost:3001    | N/A              |
-| Prometheus  | http://localhost:9090    | N/A              |
-| Grafana     | http://localhost:3030    | admin/admin      |
-| Tempo       | http://localhost:3200    | N/A              |
-| PostgreSQL  | localhost:5432           | postgres/postgres|
+### Estratégia de Documentação com Swagger
 
-## Testando a Aplicação
+O projeto implementa uma abordagem avançada para documentação de API usando Swagger/OpenAPI, com um sistema de "enhancers" que separa a documentação do código do controller, resultando em um código mais limpo e uma documentação mais rica.
 
-Utilize o arquivo de requisições HTTP localizado em `http_docs/app.http` para testar os endpoints da aplicação. Execute várias chamadas para gerar dados significativos nos dashboards de monitoramento.
+#### Arquitetura da Documentação
 
-### Testando o Monitoramento de Latência
+A documentação é estruturada em três camadas:
 
-Para validar o funcionamento do painel de monitoramento de requisições lentas:
+1. **Configuração Central do Swagger**: 
+   - Um módulo central (`swagger.config.ts`) configura as definições básicas da API
+   - Registra o endpoint do Swagger e coordena os enhancers dos módulos
 
-1. Execute várias chamadas ao endpoint de simulação de latência:
-   ```http
-   GET http://localhost:3001/users/simulate-latency
-   ```
+2. **Documentação Modular por Domínio**:
+   - Cada módulo possui seu próprio arquivo de documentação (`users.document.ts`)
+   - Define constantes reutilizáveis para exemplos, operações e respostas
 
-## Utilizando o Tempo com Grafana
+3. **Enhancers de Documentação**:
+   - Arquivos especializados (`users.swagger.enhancer.ts`) que enriquecem dinamicamente a documentação
+   - Manipulam o objeto OpenAPI para adicionar exemplos, descrições e metadados detalhados
 
-O Tempo é uma solução de tracing distribuído que permite visualizar o fluxo completo de requisições na sua aplicação. Para utilizá-lo com o Grafana:
+#### Principais Componentes
 
-### 1. Gerando Dados de Trace
+##### Configuração Central
 
-Primeiro, gere dados de trace executando chamadas à API:
+```typescript
+// swagger.config.ts
+export function setupSwagger(app: INestApplication): OpenAPIObject {
+  const config = new DocumentBuilder()
+    .setTitle('NestJS Observability API')
+    .setDescription('API com monitoramento completo')
+    .setVersion('1.0')
+    .addTag('users', 'Operações de usuários')
+    .build();
 
-```http
-### Rota principal - Hello World
-GET http://localhost:3001/
-
-### Rota para simular erros e coletar métricas de erros
-GET http://localhost:3001/error-demo
-
-### Rota para registrar eventos personalizados
-GET http://localhost:3001/event-demo
-
-### Criar um usuário (interagirá com PostgreSQL)
-POST http://localhost:3001/users
-Content-Type: application/json
-
-{
-  "name": "John Doe",
-  "email": "john@example.com"
+  const document = SwaggerModule.createDocument(app, config);
+  
+  // Aprimorar o documento com enhancers de módulos
+  enhanceUsersSwaggerDocs(document);
+  
+  SwaggerModule.setup('api-docs', app, document);
+  return document;
 }
-
-### Listar todos os usuários (interagirá com PostgreSQL)
-GET http://localhost:3001/users
 ```
 
-### 2. Acessando Traces no Grafana
+##### Documentação do Módulo
 
-1. Acesse o Grafana em http://localhost:3030
-2. Faça login com as credenciais (admin/admin)
-3. Clique em "Explore" no menu lateral
-4. Selecione "Tempo" como fonte de dados no menu suspenso
-5. Utilize os filtros de pesquisa:
-   - **Serviço**: `nest-app`
-   - **Operação**: Selecione uma operação como `/users`, `/` ou `/error-demo`
-   - **Tags**: Filtre por tags específicas como `http.method:GET`
-   - **Duração**: Filtre por tempo de execução, ex: `> 100ms`
-   - **Intervalo de tempo**: Selecione o período para analisar
+```typescript
+// users.document.ts
+export const USER_RESPONSE_EXAMPLES = {
+  SINGLE_USER: {
+    id: 1,
+    name: 'João Silva',
+    email: 'joao.silva@exemplo.com',
+    // ...
+  },
+  // ...
+};
 
-6. Clique em "Run Query" para buscar as traces disponíveis
-
-### 3. Analisando uma Trace
-
-Ao clicar em uma trace específica, você verá:
-
-1. **Visualização de Timeline**:
-   - Mostra a sequência e duração de cada span na trace
-   - Spans são coloridos por serviço/componente
-   - A largura indica o tempo de execução relativo
-
-2. **Detalhes do Span**:
-   - Clique em qualquer span para ver detalhes
-   - Examine atributos como `http.method`, `http.status_code`, `db.statement`
-   - Veja eventos associados ao span
-
-3. **Gráfico de Nós (Node Graph)**:
-   - Visualize as relações entre serviços
-   - Identifique dependências e fluxos de comunicação
-
-4. **Flame Graph**:
-   - Visualização hierárquica da trace
-   - Facilita a identificação de gargalos de performance
-
-### 4. Utilizando o Dashboard Personalizado
-
-Nossa aplicação inclui um dashboard personalizado no Grafana para visualização de métricas e traces:
-
-1. No menu lateral, clique em "Dashboards"
-2. Procure por "NestJS Application Metrics"
-3. Este dashboard contém:
-   - Taxa de requisições por minuto
-   - Duração de requisições (percentil 95)
-   - Total de erros e eventos
-   - Distribuição de erros por tipo
-   - Panel de tracing integrado
-   - **Monitoramento de requisições lentas** (>500ms)
-
-4. Para acessar o tracing a partir do dashboard:
-   - Clique em qualquer ponto dos gráficos de requisições
-   - Use a opção "Explore" no menu de contexto
-   - Selecione "Tempo" como fonte de dados para ver as traces relacionadas
-
-5. Para identificar requisições com latência acima de 500ms, utilizamos a seguinte query PromQL:
-sum by(path, method) ( rate(http_request_duration_seconds_bucket{le="+Inf"}[5m]) - rate(http_request_duration_seconds_bucket{le="0.5"}[5m]) )
-Esta consulta:
-- Calcula a diferença entre todas as requisições (`le="+Inf"`) e aquelas abaixo de 500ms (`le="0.5"`)
-- Resulta apenas nas requisições lentas (>500ms)
-- Agrupa por rota (`path`) e método HTTP (`method`)
-- Permite identificar rapidamente quais endpoints estão apresentando problemas de performance
-
-### 5. Correlacionando Métricas e Traces
-
-Um dos recursos mais poderosos é a capacidade de correlacionar métricas e traces:
-
-1. Ao identificar um pico de latência ou erro no dashboard
-2. Clique no ponto específico do gráfico
-3. Use "Explore" com fonte de dados "Tempo"
-4. Busque traces no mesmo intervalo de tempo
-5. Examine as traces para identificar a causa raiz do problema
-
-### Buscando por TraceID Específico no Tempo
-
-Para facilitar a busca de uma requisição específica no Tempo, cada resposta da API inclui um cabeçalho `X-Trace-ID`. Este identificador é gerado automaticamente pelo sistema de tracing e pode ser usado para localizar exatamente essa requisição no Grafana/Tempo:
-
-1. Execute uma chamada à API usando o arquivo `http_docs/app.http`
-2. Observe o cabeçalho `X-Trace-ID` na resposta
-3. No Grafana, navegue até Explore > Tempo
-4. Cole o TraceID no campo "Search by TraceID"
-5. Clique em "Run Query"
-
-Isso exibirá apenas a trace específica dessa requisição, facilitando o diagnóstico de problemas ou a análise detalhada de uma chamada particular.
-
-#### Exemplo com cURL
-
-```bash
-# Fazer uma requisição e capturar o X-Trace-ID
-curl -i http://localhost:3001/users
-
-# A resposta incluirá um cabeçalho como:
-# X-Trace-ID: 4bf92f3577b34da6a3ce929d0e0e4736
+export const USER_API_OPERATIONS = {
+  CREATE_USER: {
+    summary: 'Criar novo usuário',
+    description: 'Cria um novo usuário no sistema com nome e email',
+  } as ApiOperationOptions,
+  // ...
+};
 ```
 
-Esta abordagem é mais adequada porque:
+##### Enhancer do Módulo
 
-1. Não obriga o usuário a gerar e enviar um TraceID
-2. Aproveita o ID de trace que já está sendo gerado internamente pelo OpenTelemetry
-3. Permite que o usuário identifique facilmente o TraceID de cada requisição
-4. Mantém a consistência com as práticas recomendadas de observabilidade
-
-Com estas modificações, seus usuários poderão facilmente correlacionar as requisições que fazem com os traces correspondentes no sistema de observabilidade.
-
-### Documentação da API (Swagger)
-
-A documentação interativa da API está disponível através do Swagger UI:
-
-- URL: http://localhost:3001/api-docs
-- Permite testar todos os endpoints diretamente pelo navegador
-- Documenta parâmetros, corpo das requisições e respostas
-- Facilita a integração para desenvolvedores
-
-Para acessar:
-1. Inicie a aplicação com `docker-compose up -d`
-2. Navegue para http://localhost:3001/api-docs no seu navegador
-
-## Desenvolvimento Local
-
-```bash
-# Modo de desenvolvimento
-npm run start:dev
-
-# Compilar o projeto
-npm run build
-
-# Executar versão compilada
-npm run start:prod
+```typescript
+// users.swagger.enhancer.ts
+export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
+  if (document.paths['/users'] && document.paths['/users'].post) {
+    const postOp = document.paths['/users'].post;
+    postOp.summary = USER_API_OPERATIONS.CREATE_USER.summary;
+    
+    // Adicionar exemplos detalhados de requisição e resposta
+    // ...
+  }
+}
 ```
 
-## Recursos Adicionais
+#### Benefícios dessa Abordagem
 
-- [Documentação do NestJS](https://docs.nestjs.com)
-- [Documentação do Prometheus](https://prometheus.io/docs/)
-- [Documentação do Grafana](https://grafana.com/docs/)
-- [Documentação do Tempo](https://grafana.com/docs/tempo/latest/)
+1. **Separação de Preocupações**:
+   - Os controllers permanecem limpos e focados na lógica de negócio
+   - A documentação detalhada está em arquivos dedicados
 
-## Licença
+2. **Documentação Rica**:
+   - Exemplos detalhados de requisições e respostas
+   - Descrições específicas para cada endpoint
+   - Metadados para diferentes cenários de uso (erros, sucesso, casos especiais)
 
-Este projeto está licenciado sob a Licença MIT - veja o arquivo LICENSE para detalhes.
+3. **Manutenibilidade**:
+   - A documentação de um módulo fica centralizada, facilitando atualizações
+   - Constantes reutilizáveis reduzem duplicação
+
+4. **Facilidade de Extensão**:
+   - Novos módulos podem criar seus próprios enhancers
+   - A função de enhancer permite personalização avançada da documentação
+
+5. **Tipagem Forte**:
+   - Todo o sistema usa TypeScript com tipagem completa
+   - Interfaces do OpenAPI garantem consistência
+
+Esta abordagem cria uma documentação Swagger completa e detalhada, oferecendo aos consumidores da API exemplos práticos de uso, descrições claras e informações sobre comportamentos em casos de erro, sem sobrecarregar o código dos controllers.
+
+### Benefícios da Arquitetura
+
+1. **Consistência**: Métricas e traces são coletados uniformemente em toda a aplicação
+2. **Baixo Acoplamento**: Controllers não precisam se preocupar com código de instrumentação
+3. **Manutenibilidade**: Mudanças nos requisitos de observabilidade podem ser implementadas centralmente
+4. **Correlação**: Fácil correlação entre requisições, logs e métricas
+
+### Dashboards e Visualização
+
+A observabilidade é complementada por dashboards configurados no Grafana:
+
+- **Métricas HTTP**: Taxas de requisições, latências e códigos de status
+- **Estatísticas de Aplicação**: Uso de memória, CPU e métricas específicas de negócio
+- **Exploração de Traces**: Visualização de traces distribuídos para análise de performance
