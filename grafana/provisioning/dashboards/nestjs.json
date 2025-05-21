@@ -212,7 +212,7 @@
     },
     {
       "datasource": "Prometheus",
-      "description": "",
+      "description": "Requisições HTTP com status de erro (4xx e 5xx)",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -226,7 +226,7 @@
               },
               {
                 "color": "red",
-                "value": 10
+                "value": 1
               }
             ]
           }
@@ -247,7 +247,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-            "sum"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -257,7 +257,7 @@
       "pluginVersion": "7.3.7",
       "targets": [
         {
-          "expr": "sum(app_errors_total)",
+          "expr": "sum(rate(http_requests_total{statusCode=~\"[45].*\"}[5m]) * 60)",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -265,12 +265,12 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Total Errors",
+      "title": "Erro HTTP (por minuto)",
       "type": "stat"
     },
     {
       "datasource": "Prometheus",
-      "description": "",
+      "description": "Requisições HTTP com status de sucesso (2xx)",
       "fieldConfig": {
         "defaults": {
           "custom": {},
@@ -301,7 +301,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-            "sum"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -311,7 +311,7 @@
       "pluginVersion": "7.3.7",
       "targets": [
         {
-          "expr": "sum(app_events_total{status=\"success\"})",
+          "expr": "sum(rate(http_requests_total{statusCode=~\"2.*\"}[5m]) * 60)",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -319,7 +319,7 @@
       ],
       "timeFrom": null,
       "timeShift": null,
-      "title": "Successful Events",
+      "title": "Requisições Bem-sucedidas (por minuto)",
       "type": "stat"
     },
     {
@@ -328,7 +328,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "",
+      "description": "Distribuição de erros HTTP por código de status",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -371,9 +371,9 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(app_errors_total) by (errorType)",
+          "expr": "sum(rate(http_requests_total{statusCode=~\"[45].*\"}[5m]) * 60) by (statusCode)",
           "interval": "",
-          "legendFormat": "{{errorType}}",
+          "legendFormat": "{{statusCode}}",
           "refId": "A"
         }
       ],
@@ -381,7 +381,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Errors by Type",
+      "title": "Erros por Código de Status (por minuto)",
       "tooltip": {
         "shared": true,
         "sort": 0,
