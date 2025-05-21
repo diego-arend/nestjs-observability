@@ -1,6 +1,6 @@
 import { INestApplication } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder, OpenAPIObject } from '@nestjs/swagger';
-import { enhanceUsersSwaggerDocs } from '../users/documentation/users.swagger.enhancer';
+import { enhanceUsersSwaggerDocs } from '../modules/users/documentation/users.swagger.enhancer';
 
 /**
  * Configura o Swagger para a aplicação NestJS

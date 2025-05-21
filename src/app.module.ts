@@ -6,7 +6,7 @@ import { MetricsModule } from './metrics/metrics.module';
 import { LoggerModule } from './logger/logger.module';
 import { MetricsInterceptor } from './interceptors/metrics.interceptor';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { UsersModule } from './users/users.module';
+import { UsersModule } from './modules/users/users.module';
 import { getTypeOrmConfig } from './providers/database/datasource';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TraceIdInterceptor } from './interceptors/trace-id.interceptor';
