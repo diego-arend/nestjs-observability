@@ -26,7 +26,10 @@ import { TraceIdInterceptor } from './interceptors/trace-id.interceptor';
   controllers: [AppController],
   providers: [
     AppService,
-    MetricsInterceptor,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: TraceIdInterceptor,

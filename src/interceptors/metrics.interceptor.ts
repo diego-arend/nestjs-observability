@@ -3,24 +3,37 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
+  Logger,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Counter, Histogram } from 'prom-client';
+import { shouldSkipMonitoring } from '../filters/filter-endpoints';
 
 @Injectable()
 export class MetricsInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(MetricsInterceptor.name);
+
   constructor(
     @InjectMetric('http_requests_total')
     private readonly requestCounter: Counter<string>,
+
     @InjectMetric('http_request_duration_seconds')
     private readonly requestDuration: Histogram<string>,
-  ) {}
+  ) {
+    this.logger.log('MetricsInterceptor inicializado');
+  }
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
     const { method, path } = request;
+
+    // Usar o mesmo filtro compartilhado
+    if (shouldSkipMonitoring(path)) {
+      return next.handle();
+    }
+
     const start = Date.now();
 
     return next.handle().pipe(

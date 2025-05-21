@@ -1,19 +1,14 @@
-// Este arquivo conterá a lógica de inicialização da aplicação
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { AppModule } from './app.module';
-import { MetricsInterceptor } from './interceptors/metrics.interceptor';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { AppModule } from './app.module';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
+import { EXCLUDED_PATHS } from './filters/filter-endpoints';
 
 export async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const logger = new Logger('Database');
-
-  // Aplicando o interceptor de métricas globalmente
-  const metricsInterceptor = app.get(MetricsInterceptor);
-  app.useGlobalInterceptors(metricsInterceptor);
+  const logger = new Logger('Bootstrap');
 
   app.useGlobalPipes(new ValidationPipe());
 
@@ -56,7 +51,13 @@ export async function bootstrap() {
   SwaggerModule.setup('api-docs', app, document);
 
   await app.listen(process.env.PORT || 3001);
-  console.log(`Application is running on: ${await app.getUrl()}`);
+  logger.log(`Application is running on: ${await app.getUrl()}`);
+
+  logger.log(
+    `Monitoramento (métricas e traces) desativado para endpoints de manutenção: ${EXCLUDED_PATHS.join(
+      ', ',
+    )}`,
+  );
 
   return app;
 }

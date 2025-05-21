@@ -2,9 +2,11 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-
-// Remover a configuração do logger que está duplicada
-// diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
+import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import {
+  shouldSkipMonitoring,
+  EXCLUDED_PATHS,
+} from '../filters/filter-endpoints';
 
 export function initTracing() {
   try {
@@ -15,21 +17,37 @@ export function initTracing() {
       url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     });
 
-    // Configurar o SDK usando a abordagem moderna
+    // Configurar o SDK
     const sdk = new NodeSDK({
       resource: new Resource({
         [SemanticResourceAttributes.SERVICE_NAME]:
           process.env.OTEL_SERVICE_NAME,
       }),
+      // Em vez de usar spanProcessor ou traceExporter individualmente,
+      // configure assim:
       traceExporter,
-      // Não registrar instrumentações novamente, pois já foram registradas em config-tracing.ts
-      instrumentations: [],
+      instrumentations: [
+        getNodeAutoInstrumentations({
+          '@opentelemetry/instrumentation-http': {
+            enabled: true,
+            ignoreIncomingRequestHook: (req) => {
+              const url = req.url;
+              if (!url) return false;
+              return shouldSkipMonitoring(url);
+            },
+          },
+          '@opentelemetry/instrumentation-express': { enabled: true },
+          '@opentelemetry/instrumentation-nestjs-core': { enabled: true },
+        }),
+      ],
     });
 
     // Iniciar o SDK
     sdk.start();
 
-    console.log('Sistema de tracing inicializado com sucesso');
+    console.log(
+      `Sistema de tracing inicializado com sucesso. Endpoints excluídos: ${EXCLUDED_PATHS.join(', ')}`,
+    );
 
     // Graceful shutdown
     process.on('SIGTERM', () => {
