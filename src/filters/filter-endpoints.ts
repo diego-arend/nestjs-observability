@@ -7,11 +7,12 @@
  * Array de caminhos a serem excluídos da coleta de métricas e traces
  */
 export const EXCLUDED_PATHS = [
-  '/',
-  '/metrics',
   '/health',
-  '/prometheus',
+  '/healthcheck',
+  '/health-check',
+  '/metrics',
   '/api-docs',
+  '/swagger',
 ];
 
 /**

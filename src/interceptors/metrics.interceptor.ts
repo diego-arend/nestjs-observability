@@ -27,10 +27,14 @@ export class MetricsInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest();
-    const { method, path } = request;
+    const method = request.method;
+    const path = request.route?.path || request.path;
+
+    // Normalizar o path - garantir que comece com barra e não tenha barra no final
+    const normalizedPath = '/' + path.replace(/^\/|\/$/g, '');
 
     // Usar o mesmo filtro compartilhado
-    if (shouldSkipMonitoring(path)) {
+    if (shouldSkipMonitoring(normalizedPath)) {
       return next.handle();
     }
 
@@ -42,16 +46,19 @@ export class MetricsInterceptor implements NestInterceptor {
         const statusCode = context.switchToHttp().getResponse().statusCode;
 
         // Incrementa o contador de requisições HTTP
-        this.requestCounter.inc({ method, path, statusCode });
+        this.requestCounter.inc({ method, path: normalizedPath, statusCode });
 
         // Registra a duração da requisição
-        this.requestDuration.observe({ method, path, statusCode }, duration);
+        this.requestDuration.observe(
+          { method, path: normalizedPath, statusCode },
+          duration,
+        );
       }),
       catchError((err) => {
         const statusCode = err.status || 500;
 
         // Incrementa o contador para requisições com erro
-        this.requestCounter.inc({ method, path, statusCode });
+        this.requestCounter.inc({ method, path: normalizedPath, statusCode });
 
         throw err;
       }),

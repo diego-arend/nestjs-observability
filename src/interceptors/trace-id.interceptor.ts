@@ -16,10 +16,13 @@ export class TraceIdInterceptor implements NestInterceptor {
 
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<any> {
     const request = ctx.switchToHttp().getRequest();
-    const { path } = request;
+    const path = request.route?.path || request.path;
+
+    // Normalizar o path - garantir que comece com barra e não tenha barra no final
+    const normalizedPath = '/' + path.replace(/^\/|\/$/g, '');
 
     // Verificar se esse endpoint deve ser ignorado para traces
-    if (shouldSkipMonitoring(path)) {
+    if (shouldSkipMonitoring(normalizedPath)) {
       return next.handle();
     }
 
