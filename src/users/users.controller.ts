@@ -4,63 +4,92 @@ import {
   Post,
   Body,
   Param,
-  Delete,
-  Query,
+  NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
-import { User } from './entity/user.entity';
+import { ApiTags } from '@nestjs/swagger';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
+  private readonly logger = new Logger(UsersController.name);
+
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Criar novo usuário' })
-  @ApiResponse({
-    status: 201,
-    description: 'Usuário criado com sucesso.',
-    type: User,
-  })
-  @ApiResponse({ status: 400, description: 'Dados inválidos.' })
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  async create(@Body() createUserDto: CreateUserDto) {
+    this.logger.log(`Criando usuário com email: ${createUserDto.email}`);
+
+    try {
+      const result = await this.usersService.create(createUserDto);
+      this.logger.log(`Usuário criado com sucesso: ID=${result.id}`);
+      return result;
+    } catch (error) {
+      this.logger.error(`Erro ao criar usuário: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar todos os usuários' })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de usuários retornada com sucesso.',
-    type: [User],
-  })
-  findAll() {
-    return this.usersService.findAll();
+  async findAll() {
+    this.logger.log('Listando todos os usuários');
+
+    try {
+      const users = await this.usersService.findAll();
+      this.logger.log(`Retornados ${users.length} usuários`);
+      return users;
+    } catch (error) {
+      this.logger.error(
+        `Erro ao listar usuários: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
   }
 
   @Get('simulate-latency')
-  @ApiOperation({
-    summary: 'Simular consulta lenta',
-    description:
-      'Endpoint que simula uma consulta lenta ao banco de dados com 700ms de delay',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de usuários retornada com sucesso após delay.',
-    type: [User],
-  })
-  simulateSlowQuery() {
-    return this.usersService.findAllWithDelay(700);
+  async simulateSlowQuery() {
+    this.logger.log('Executando consulta com latência simulada (700ms)');
+
+    try {
+      const users = await this.usersService.findAllWithDelay(700);
+      this.logger.log(
+        `Consulta lenta concluída, retornados ${users.length} usuários`,
+      );
+      return users;
+    } catch (error) {
+      this.logger.error(
+        `Erro na consulta lenta: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Buscar usuário por ID' })
-  @ApiParam({ name: 'id', description: 'ID do usuário' })
-  @ApiResponse({ status: 200, description: 'Usuário encontrado.', type: User })
-  @ApiResponse({ status: 404, description: 'Usuário não encontrado.' })
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
+  async findOne(@Param('id') id: string) {
+    this.logger.log(`Buscando usuário com ID: ${id}`);
+
+    try {
+      const user = await this.usersService.findOne(+id);
+
+      if (!user) {
+        this.logger.warn(`Usuário com ID ${id} não encontrado`);
+        throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
+      }
+
+      this.logger.log(`Usuário ${id} encontrado: ${user.name}`);
+      return user;
+    } catch (error) {
+      if (!(error instanceof NotFoundException)) {
+        this.logger.error(
+          `Erro ao buscar usuário ${id}: ${error.message}`,
+          error.stack,
+        );
+      }
+      throw error;
+    }
   }
 }
