@@ -1,16 +1,36 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { getDataSourceToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { EXCLUDED_PATHS } from './filters/filter-endpoints';
 import { setupSwagger } from './swagger/swagger.config';
+import { HttpExceptionFilter } from './filters/http-exception.filter';
 
 export async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
-  app.useGlobalPipes(new ValidationPipe());
+  // Aplicar globalmente o filtro de exceções personalizado
+  app.useGlobalFilters(new HttpExceptionFilter());
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      // Garantir que erros de validação sejam transformados em HttpExceptions
+      exceptionFactory: (errors) => {
+        const messages = errors.map((error) =>
+          Object.values(error.constraints).join(', '),
+        );
+        return new BadRequestException({
+          message: messages,
+          error: 'Bad Request',
+        });
+      },
+    }),
+  );
 
   // Verificar status das migrações
   try {

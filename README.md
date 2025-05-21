@@ -183,3 +183,86 @@ A observabilidade é complementada por dashboards configurados no Grafana:
 - **Métricas HTTP**: Taxas de requisições, latências e códigos de status
 - **Estatísticas de Aplicação**: Uso de memória, CPU e métricas específicas de negócio
 - **Exploração de Traces**: Visualização de traces distribuídos para análise de performance
+
+
+#### Tratamento Padronizado de Exceções
+
+A aplicação implementa um sistema robusto para tratamento de exceções através do `HttpExceptionFilter`, que diferencia claramente entre exceções HTTP esperadas (parte normal do fluxo da API) e erros reais de aplicação (bugs ou falhas de sistema).
+
+##### HttpExceptionFilter
+
+O filtro global de exceções garante respostas consistentes e padronizadas para todas as situações de erro:
+
+- **Diferenciação de Erros**: Distingue entre exceções HTTP esperadas e erros reais da aplicação
+- **Propagação para Traces**: Adiciona informações de erro aos traces de forma contextualizada
+- **Logging Inteligente**: Registra logs com níveis de severidade apropriados para cada tipo de erro
+
+```typescript
+// Exemplo de diferenciação entre exceções HTTP e erros de sistema
+if (!isHttpException || status >= 500) {
+  // ERRO REAL: Registrar como erro no trace e nos logs
+  this.addErrorToTrace(exception, request.path, status);
+  this.logApplicationError(exception, request, status);
+} else {
+  // EXCEÇÃO HTTP: Registrar como evento normal no trace e log info/debug
+  this.addExceptionEventToTrace(exception, request.path, status);
+  this.logHttpException(exception, request, status);
+}
+```
+
+##### Categorias de Erro
+
+O sistema faz uma clara distinção entre dois tipos de situações excepcionais:
+
+1. **Exceções HTTP Esperadas (4xx)**:
+   - Validações de input (400)
+   - Recursos não encontrados (404)
+   - Conflitos de dados (409)
+   - Problemas de autenticação/autorização (401/403)
+   - Tratadas como parte normal da operação da API
+   - Registradas como eventos nos traces, não como erros
+   - Logadas com níveis INFO ou DEBUG (exceto 401/403 que são WARN)
+
+2. **Erros Reais de Aplicação**:
+   - Exceções não-HTTP (bugs, erros de programação)
+   - Erros de servidor (status 5xx)
+   - Falhas de infraestrutura ou dependências
+   - Registrados como erros genuínos nos traces
+   - Sempre logados com nível ERROR e stack trace completo
+
+##### Exceções Personalizadas
+
+A aplicação utiliza exceções personalizadas que estendem as classes base do NestJS:
+
+```typescript
+// Exemplo de exceção personalizada para 404
+export class NotFoundException extends CustomHttpException {
+  constructor(
+    entityName: string, 
+    identifier?: string | number, 
+    public readonly details?: any
+  ) {
+    const message = identifier
+      ? `${entityName} com identificador ${identifier} não encontrado(a)`
+      : `${entityName} não encontrado(a)`;
+    super(message, HttpStatus.NOT_FOUND);
+  }
+}
+```
+
+Estas classes proporcionam:
+- Mensagens padronizadas para cada tipo de erro
+- Suporte para detalhes adicionais
+- Integração com o sistema de filtro de exceções
+
+##### Benefícios dessa Abordagem
+
+1. **Métricas Precisas**: Erros reais de sistema são contabilizados separadamente de respostas de erro normais (4xx)
+2. **Alertas Relevantes**: Alertas podem ser configurados apenas para erros genuínos, evitando falsos positivos
+3. **Debugging Eficiente**: Stack traces completos apenas para erros reais, reduzindo ruído nos logs
+4. **Respostas Consistentes**: Todas as respostas de erro seguem o mesmo formato padronizado
+5. **Rastreabilidade**: Erros críticos são facilmente rastreáveis nos sistemas de observabilidade
+
+Esta abordagem de tratamento de exceções complementa os interceptors de métricas e traces, garantindo que a observabilidade da aplicação seja abrangente e contextualizada tanto para fluxos normais quanto para situações de erro.
+
+

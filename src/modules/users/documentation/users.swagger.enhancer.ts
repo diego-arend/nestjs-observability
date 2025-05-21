@@ -141,31 +141,6 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
     }
   }
 
-  // Aprimorar o endpoint GET /users/simulate-latency
-  if (
-    document.paths['/users/simulate-latency'] &&
-    document.paths['/users/simulate-latency'].get
-  ) {
-    const getOp = document.paths['/users/simulate-latency'].get;
-    getOp.summary = USER_API_OPERATIONS.SIMULATE_LATENCY.summary;
-    getOp.description = USER_API_OPERATIONS.SIMULATE_LATENCY.description;
-    getOp.description +=
-      '\n\nEste endpoint adiciona um delay de 700ms para simular operações de alta latência. Útil para testes de timeout e comportamento do sistema com operações lentas.';
-
-    if (getOp.responses) {
-      enhanceResponse(
-        getOp.responses['200'],
-        USER_API_RESPONSES.FIND_ALL_SUCCESS.description,
-        USER_RESPONSE_EXAMPLES.USER_LIST,
-        {
-          summary: 'Lista de usuários (com atraso)',
-          description:
-            'Mesma resposta do endpoint /users, mas com atraso intencional de 700ms',
-        },
-      );
-    }
-  }
-
   // Aprimorar o endpoint GET /users/{id}
   if (document.paths['/users/{id}'] && document.paths['/users/{id}'].get) {
     const getOneOp = document.paths['/users/{id}'].get;
@@ -211,6 +186,116 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
           summary: 'Usuário não encontrado',
           description:
             'Nenhum usuário com o ID fornecido foi encontrado no banco de dados',
+        },
+      );
+    }
+  }
+
+  // Aprimorar o endpoint PUT /users/{id}
+  if (document.paths['/users/{id}'] && document.paths['/users/{id}'].put) {
+    const updateOp = document.paths['/users/{id}'].put;
+    updateOp.summary = USER_API_OPERATIONS.UPDATE_USER.summary;
+    updateOp.description = USER_API_OPERATIONS.UPDATE_USER.description;
+    updateOp.description +=
+      '\n\nAtualiza os dados de um usuário existente com validação dos mesmos campos usados na criação.';
+
+    // Melhorar descrição do parâmetro de caminho
+    if (updateOp.parameters && updateOp.parameters.length > 0) {
+      const idParam = updateOp.parameters.find(
+        (p) => !('$ref' in p) && p.name === 'id',
+      );
+      if (idParam && !('$ref' in idParam)) {
+        idParam.description = 'ID numérico único do usuário a ser atualizado';
+        idParam.example = 1;
+      }
+    }
+
+    // Adicionar exemplo de request body
+    if (updateOp.requestBody && !('$ref' in updateOp.requestBody)) {
+      if (
+        updateOp.requestBody.content &&
+        updateOp.requestBody.content['application/json']
+      ) {
+        updateOp.requestBody.content['application/json'].examples = {
+          fullUpdate: {
+            summary: 'Atualização completa',
+            value: {
+              name: 'João Silva Atualizado',
+              email: 'joao.silva.novo@exemplo.com',
+            },
+          },
+          partialUpdate: {
+            summary: 'Atualização parcial (apenas nome)',
+            value: {
+              name: 'João Silva Atualizado',
+            },
+          },
+        };
+      }
+    }
+
+    if (updateOp.responses) {
+      // Resposta de sucesso
+      enhanceResponse(
+        updateOp.responses['200'],
+        USER_API_RESPONSES.UPDATE_SUCCESS.description,
+        USER_RESPONSE_EXAMPLES.SINGLE_USER,
+        {
+          summary: 'Usuário atualizado',
+          description:
+            'Os dados do usuário foram atualizados com sucesso e os novos valores são retornados',
+        },
+      );
+
+      // Resposta de erro - Bad Request
+      enhanceResponse(
+        updateOp.responses['400'],
+        USER_API_RESPONSES.BAD_REQUEST.description,
+        USER_ERROR_EXAMPLES.VALIDATION_ERROR,
+        {
+          summary: 'Dados inválidos',
+          description:
+            'Os dados fornecidos não passaram nas validações, como email inválido',
+        },
+      );
+
+      // Resposta de erro - Not Found
+      enhanceResponse(
+        updateOp.responses['404'],
+        USER_API_RESPONSES.NOT_FOUND.description,
+        {
+          statusCode: 404,
+          message: 'Usuário com ID 42 não encontrado',
+          error: 'Not Found',
+        },
+        {
+          summary: 'Usuário não encontrado',
+          description:
+            'Nenhum usuário com o ID fornecido foi encontrado no banco de dados',
+        },
+      );
+
+      // Resposta de erro - Conflict
+      enhanceResponse(
+        updateOp.responses['409'],
+        USER_API_RESPONSES.CONFLICT.description,
+        USER_ERROR_EXAMPLES.CONFLICT,
+        {
+          summary: 'Email já existente',
+          description:
+            'O email fornecido já está sendo usado por outro usuário',
+        },
+      );
+
+      // Resposta de erro - Internal Server Error
+      enhanceResponse(
+        updateOp.responses['500'],
+        USER_API_RESPONSES.INTERNAL_SERVER_ERROR.description,
+        USER_ERROR_EXAMPLES.INTERNAL_SERVER_ERROR,
+        {
+          summary: 'Erro no servidor',
+          description:
+            'Ocorreu um erro interno no servidor ao tentar atualizar o usuário',
         },
       );
     }

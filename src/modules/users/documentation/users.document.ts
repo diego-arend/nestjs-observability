@@ -82,10 +82,10 @@ export const USER_API_OPERATIONS = {
       'Localiza e retorna os dados de um usuário específico pelo seu ID',
   } as ApiOperationOptions,
 
-  SIMULATE_LATENCY: {
-    summary: 'Simular consulta lenta',
+  UPDATE_USER: {
+    summary: 'Atualizar usuário existente',
     description:
-      'Endpoint que simula uma consulta lenta ao banco de dados com 700ms de delay. Útil para testes de timeout e métricas de performance.',
+      'Atualiza os dados de um usuário existente com base no ID fornecido',
   } as ApiOperationOptions,
 };
 
@@ -125,6 +125,14 @@ export const USER_API_RESPONSES = {
   FIND_ONE_SUCCESS: {
     status: 200,
     description: 'Usuário encontrado com sucesso',
+    schema: {
+      example: USER_RESPONSE_EXAMPLES.SINGLE_USER,
+    },
+  } as ApiResponseOptions,
+
+  UPDATE_SUCCESS: {
+    status: 200,
+    description: 'Usuário atualizado com sucesso',
     schema: {
       example: USER_RESPONSE_EXAMPLES.SINGLE_USER,
     },

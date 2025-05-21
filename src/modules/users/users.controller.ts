@@ -4,12 +4,20 @@ import {
   Post,
   Body,
   Param,
-  NotFoundException,
+  Put,
+  ParseIntPipe,
   Logger,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { ApiTags } from '@nestjs/swagger';
+import { UpdateUserDto } from './dto/update-user.dto';
+import {
+  USER_API_OPERATIONS,
+  USER_API_PARAMS,
+  USER_API_RESPONSES,
+} from './documentation/users.document';
+import { NotFoundException } from '../../exceptions/custom-exceptions';
 
 @ApiTags('users')
 @Controller('users')
@@ -19,77 +27,63 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @ApiOperation(USER_API_OPERATIONS.CREATE_USER)
+  @ApiResponse(USER_API_RESPONSES.CREATE_SUCCESS)
+  @ApiResponse(USER_API_RESPONSES.BAD_REQUEST)
+  @ApiResponse(USER_API_RESPONSES.CONFLICT)
+  @ApiResponse(USER_API_RESPONSES.INTERNAL_SERVER_ERROR)
   async create(@Body() createUserDto: CreateUserDto) {
     this.logger.log(`Criando usuário com email: ${createUserDto.email}`);
-
-    try {
-      const result = await this.usersService.create(createUserDto);
-      this.logger.log(`Usuário criado com sucesso: ID=${result.id}`);
-      return result;
-    } catch (error) {
-      this.logger.error(`Erro ao criar usuário: ${error.message}`, error.stack);
-      throw error;
-    }
+    const result = await this.usersService.create(createUserDto);
+    this.logger.log(`Usuário criado com sucesso: ID=${result.id}`);
+    return result;
   }
 
   @Get()
+  @ApiOperation(USER_API_OPERATIONS.FIND_ALL)
+  @ApiResponse(USER_API_RESPONSES.FIND_ALL_SUCCESS)
+  @ApiResponse(USER_API_RESPONSES.INTERNAL_SERVER_ERROR)
   async findAll() {
-    this.logger.log('Listando todos os usuários');
-
-    try {
-      const users = await this.usersService.findAll();
-      this.logger.log(`Retornados ${users.length} usuários`);
-      return users;
-    } catch (error) {
-      this.logger.error(
-        `Erro ao listar usuários: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
-  }
-
-  @Get('simulate-latency')
-  async simulateSlowQuery() {
-    this.logger.log('Executando consulta com latência simulada (700ms)');
-
-    try {
-      const users = await this.usersService.findAllWithDelay(700);
-      this.logger.log(
-        `Consulta lenta concluída, retornados ${users.length} usuários`,
-      );
-      return users;
-    } catch (error) {
-      this.logger.error(
-        `Erro na consulta lenta: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    this.logger.log('Buscando todos os usuários');
+    const users = await this.usersService.findAll();
+    this.logger.log(`Retornados ${users.length} usuários`);
+    return users;
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  @ApiOperation(USER_API_OPERATIONS.FIND_ONE)
+  @ApiParam(USER_API_PARAMS.ID)
+  @ApiResponse(USER_API_RESPONSES.FIND_ONE_SUCCESS)
+  @ApiResponse(USER_API_RESPONSES.NOT_FOUND)
+  @ApiResponse(USER_API_RESPONSES.INTERNAL_SERVER_ERROR)
+  async findOne(@Param('id', ParseIntPipe) id: number) {
     this.logger.log(`Buscando usuário com ID: ${id}`);
+    const user = await this.usersService.findOne(id);
 
-    try {
-      const user = await this.usersService.findOne(+id);
-
-      if (!user) {
-        this.logger.warn(`Usuário com ID ${id} não encontrado`);
-        throw new NotFoundException(`Usuário com ID ${id} não encontrado`);
-      }
-
-      this.logger.log(`Usuário ${id} encontrado: ${user.name}`);
-      return user;
-    } catch (error) {
-      if (!(error instanceof NotFoundException)) {
-        this.logger.error(
-          `Erro ao buscar usuário ${id}: ${error.message}`,
-          error.stack,
-        );
-      }
-      throw error;
+    if (!user) {
+      this.logger.warn(`Usuário com ID ${id} não encontrado`);
+      throw new NotFoundException('Usuário', id);
     }
+
+    this.logger.log(`Usuário ${id} encontrado: ${user.name}`);
+    return user;
+  }
+
+  @Put(':id')
+  @ApiOperation(USER_API_OPERATIONS.UPDATE_USER)
+  @ApiParam(USER_API_PARAMS.ID)
+  @ApiResponse(USER_API_RESPONSES.UPDATE_SUCCESS)
+  @ApiResponse(USER_API_RESPONSES.BAD_REQUEST)
+  @ApiResponse(USER_API_RESPONSES.NOT_FOUND)
+  @ApiResponse(USER_API_RESPONSES.CONFLICT)
+  @ApiResponse(USER_API_RESPONSES.INTERNAL_SERVER_ERROR)
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    this.logger.log(`Atualizando usuário com ID: ${id}`);
+    const result = await this.usersService.update(id, updateUserDto);
+    this.logger.log(`Usuário ${id} atualizado com sucesso`);
+    return result;
   }
 }
