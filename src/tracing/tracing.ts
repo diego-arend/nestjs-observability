@@ -1,12 +1,10 @@
-import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { Resource } from '@opentelemetry/resources';
 import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 
-// Ativar diagnósticos para debug (opcional)
-diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
+// Remover a configuração do logger que está duplicada
+// diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.INFO);
 
 export function initTracing() {
   try {
@@ -14,28 +12,18 @@ export function initTracing() {
 
     // Configurar o exportador OTLP para enviar traces ao Tempo
     const traceExporter = new OTLPTraceExporter({
-      url:
-        process.env.OTEL_EXPORTER_OTLP_ENDPOINT ||
-        'http://localhost:4318/v1/traces',
+      url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     });
 
     // Configurar o SDK usando a abordagem moderna
     const sdk = new NodeSDK({
       resource: new Resource({
         [SemanticResourceAttributes.SERVICE_NAME]:
-          process.env.OTEL_SERVICE_NAME || 'nest-app',
+          process.env.OTEL_SERVICE_NAME,
       }),
       traceExporter,
-      instrumentations: [
-        getNodeAutoInstrumentations({
-          '@opentelemetry/instrumentation-http': { enabled: true },
-          '@opentelemetry/instrumentation-express': { enabled: true },
-          '@opentelemetry/instrumentation-nestjs-core': { enabled: true },
-          '@opentelemetry/instrumentation-pg': { enabled: true },
-          // Desabilitar instrumentações desnecessárias
-          '@opentelemetry/instrumentation-fs': { enabled: false },
-        }),
-      ],
+      // Não registrar instrumentações novamente, pois já foram registradas em config-tracing.ts
+      instrumentations: [],
     });
 
     // Iniciar o SDK

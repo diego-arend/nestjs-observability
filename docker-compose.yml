@@ -22,7 +22,7 @@ services:
     depends_on:
       postgres:
         condition: service_started
-      tempo:
+      prometheus:
         condition: service_started
 
   postgres:
