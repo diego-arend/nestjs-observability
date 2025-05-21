@@ -1,11 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { LoggerService } from './logger/logger.service';
+import { PinoLoggerService } from './logger/pino-logger.service';
 
 @ApiTags('health')
 @Controller()
 export class AppController {
-  constructor(private readonly logger: LoggerService) {}
+  constructor(private readonly logger: PinoLoggerService) {}
 
   @Get('health')
   healthCheck() {

@@ -19,7 +19,8 @@ console.log('Registrando instrumentações OpenTelemetry no nível mais alto...'
 registerInstrumentations({
   instrumentations: [
     getNodeAutoInstrumentations({
-      '@opentelemetry/instrumentation-grpc': { enabled: true },
+      // Desabilitar a instrumentação gRPC para evitar o aviso
+      '@opentelemetry/instrumentation-grpc': { enabled: false },
       '@opentelemetry/instrumentation-nestjs-core': { enabled: true },
       '@opentelemetry/instrumentation-pg': { enabled: true },
       '@opentelemetry/instrumentation-express': { enabled: true },

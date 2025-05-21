@@ -23,8 +23,6 @@ export function initTracing() {
         [SemanticResourceAttributes.SERVICE_NAME]:
           process.env.OTEL_SERVICE_NAME,
       }),
-      // Em vez de usar spanProcessor ou traceExporter individualmente,
-      // configure assim:
       traceExporter,
       instrumentations: [
         getNodeAutoInstrumentations({
@@ -38,6 +36,8 @@ export function initTracing() {
           },
           '@opentelemetry/instrumentation-express': { enabled: true },
           '@opentelemetry/instrumentation-nestjs-core': { enabled: true },
+          // Desabilitar a instrumentação gRPC
+          '@opentelemetry/instrumentation-grpc': { enabled: false },
         }),
       ],
     });

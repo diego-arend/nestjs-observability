@@ -1,18 +1,32 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
-import { AppModule } from './app.module';
-import { getDataSourceToken } from '@nestjs/typeorm';
+import { ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { EXCLUDED_PATHS } from './filters/filter-endpoints';
-import { setupSwagger } from './swagger/swagger.config';
+import { getDataSourceToken } from '@nestjs/typeorm';
+import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
+import { setupSwagger } from './swagger/swagger.config';
+import { PinoLoggerService } from './logger/pino-logger.service';
+import { EXCLUDED_PATHS } from './filters/filter-endpoints';
+import { BadRequestException } from './exceptions/custom-exceptions';
 
 export async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const logger = new Logger('Bootstrap');
+  // Criar uma instância do logger para o bootstrap
+  const pinoLogger = new PinoLoggerService();
+  const logger = pinoLogger.createChildLogger('Bootstrap');
+
+  // Criar a aplicação com o logger personalizado
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true, // Importante para garantir que os logs iniciais sejam processados pelo Pino
+  });
+
+  // Configurar o logger personalizado após a criação da aplicação
+  app.useLogger(pinoLogger);
+
+  // Obter a instância compartilhada do logger do container de injeção de dependências
+  const sharedLogger = app.get(PinoLoggerService);
 
   // Aplicar globalmente o filtro de exceções personalizado
-  app.useGlobalFilters(new HttpExceptionFilter());
+  app.useGlobalFilters(new HttpExceptionFilter(sharedLogger));
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -48,7 +62,10 @@ export async function bootstrap() {
       );
     }
   } catch (error) {
-    logger.error(`Erro ao verificar/executar migrações: ${error.message}`);
+    logger.error(
+      `Erro ao verificar/executar migrações: ${error.message}`,
+      error.stack,
+    );
     if (process.env.NODE_ENV === 'production') {
       // Em produção, falhar se as migrações não puderem ser verificadas
       process.exit(1);

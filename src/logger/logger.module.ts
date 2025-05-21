@@ -1,10 +1,14 @@
-import { Module } from '@nestjs/common';
-import { LoggerService } from './logger.service';
-import { MetricsModule } from '../metrics/metrics.module';
+import { Global, Module } from '@nestjs/common';
+import { PinoLoggerService } from './pino-logger.service';
 
+@Global()
 @Module({
-  imports: [MetricsModule],
-  providers: [LoggerService],
-  exports: [LoggerService],
+  providers: [
+    {
+      provide: PinoLoggerService,
+      useClass: PinoLoggerService,
+    },
+  ],
+  exports: [PinoLoggerService],
 })
 export class LoggerModule {}

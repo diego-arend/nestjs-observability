@@ -62,6 +62,58 @@ this.logger.log(`Usuário criado com sucesso: ID=${result.id}`);
 
 Estes logs complementam as métricas e traces, fornecendo contexto de negócio que facilita a resolução de problemas.
 
+#### Sistema de Logs com Pino e Integração Loki
+
+A aplicação utiliza o Pino como biblioteca de logging, otimizada para performance e integração com o ecossistema de observabilidade:
+
+- **Centralização dos Logs**: Logs são estruturados em formato JSON e centralizados através do Loki
+- **Correlação com Traces**: Todos os logs incluem o `trace_id` automaticamente, permitindo navegar entre logs e traces
+- **Níveis Configuráveis**: Configuração de nível de log (`LOG_LEVEL`) por ambiente
+- **Contextualização**: Logs incluem metadados como serviço, ambiente, contexto da aplicação e timestamp preciso
+
+##### Níveis de Log
+
+A aplicação implementa uma estratégia consistente de logging com diferentes níveis de severidade:
+
+| Nível   | Uso                                            | Exemplo                                           |
+|---------|------------------------------------------------|---------------------------------------------------|
+| ERROR   | Falhas críticas que impactam funcionalidades   | Conexão com banco de dados perdida, API externa indisponível |
+| WARN    | Situações problemáticas, mas não fatais        | Tentativa de acesso não autorizado, deprecation warnings |
+| INFO    | Eventos normais relevantes para operação       | Usuário criado, requisição processada com sucesso |
+| DEBUG   | Informações detalhadas para troubleshooting    | Parâmetros de requisição, detalhes de processamento |
+| TRACE   | Rastreamento profundo para depuração avançada  | Fluxo detalhado entre funções, valores intermediários |
+
+O nível de log pode ser configurado via variável de ambiente `LOG_LEVEL`, sendo o padrão `info` em produção e `debug` em desenvolvimento. Logs de níveis inferiores ao configurado são automaticamente filtrados.
+
+```typescript
+// Exemplo de uso do logger em um serviço
+@Injectable()
+export class UsersService {
+  constructor(private readonly logger: PinoLoggerService) {}
+
+  async create(createUserDto: CreateUserDto) {
+    this.logger.log(
+      `Criando usuário com email: ${createUserDto.email}`,
+      'UsersService',
+      { operation: 'create_user' }
+    );
+
+    try {
+      // Lógica de criação
+      return result;
+    } catch (error) {
+      this.logger.error(
+        `Falha ao criar usuário: ${error.message}`,
+        error.stack,
+        'UsersService',
+        { operation: 'create_user', email: createUserDto.email }
+      );
+      throw error;
+    }
+  }
+}
+```
+
 ### Estratégia de Documentação com Swagger
 
 O projeto implementa uma abordagem avançada para documentação de API usando Swagger/OpenAPI, com um sistema de "enhancers" que separa a documentação do código do controller, resultando em um código mais limpo e uma documentação mais rica.
@@ -184,6 +236,18 @@ A observabilidade é complementada por dashboards configurados no Grafana:
 - **Estatísticas de Aplicação**: Uso de memória, CPU e métricas específicas de negócio
 - **Exploração de Traces**: Visualização de traces distribuídos para análise de performance
 
+##### Exploração de Logs no Grafana
+
+O sistema permite consultas poderosas no Grafana usando a linguagem LogQL:
+
+- Filtrar por contexto: `{app="nestjs-observability"} |= "UsersService"`
+- Buscar erros: `{app="nestjs-observability", level="error"}`
+- Trace de uma requisição: `{app="nestjs-observability"} |= "trace_id=abcdef123456"`
+- Extrair e agregar: `sum(count_over_time({app="nestjs-observability", level="error"}[5m])) by (error_type)`
+
+##### Correlação Logs-Traces
+
+Ao clicar em um log no Grafana que contém um `trace_id`, é possível navegar diretamente para o trace completo da requisição no Tempo, proporcionando uma experiência fluida de análise e troubleshooting.
 
 #### Tratamento Padronizado de Exceções
 

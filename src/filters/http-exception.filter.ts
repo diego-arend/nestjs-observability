@@ -4,11 +4,11 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { context, trace } from '@opentelemetry/api';
 import { CustomHttpException } from '../exceptions/custom-exceptions';
+import { PinoLoggerService } from '../logger/pino-logger.service';
 
 /**
  * Filtro global para padronizar o formato das respostas de erro
@@ -19,7 +19,7 @@ import { CustomHttpException } from '../exceptions/custom-exceptions';
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(HttpExceptionFilter.name);
+  constructor(private readonly logger: PinoLoggerService) {}
 
   catch(exception: any, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -47,6 +47,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
       request,
     );
 
+    // Obter o trace ID atual para correlação
+    const traceId = this.getTraceId();
+    if (traceId) {
+      errorResponse.trace_id = traceId;
+    }
+
     // Tratar erros reais de aplicação vs exceções HTTP esperadas
     if (!isHttpException || status >= 500) {
       // ERRO REAL: Registrar como erro no trace e nos logs
@@ -58,8 +64,22 @@ export class HttpExceptionFilter implements ExceptionFilter {
       this.logHttpException(exception, request, status);
     }
 
+    // Adicionar o trace ID ao cabeçalho da resposta para correlação
+    if (traceId) {
+      response.setHeader('X-Trace-ID', traceId);
+    }
+
     // Retornar a resposta padronizada
     response.status(status).json(errorResponse);
+  }
+
+  private getTraceId(): string | undefined {
+    const currentSpan = trace.getSpan(context.active());
+    if (currentSpan) {
+      const spanContext = currentSpan.spanContext();
+      return spanContext.traceId;
+    }
+    return undefined;
   }
 
   /**
@@ -73,6 +93,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
   ): any {
     const timestamp = new Date().toISOString();
     const path = request.url;
+    const traceId = this.getTraceId();
 
     // Se a mensagem já for um objeto, preservar sua estrutura
     if (typeof message === 'object' && !Array.isArray(message)) {
@@ -80,6 +101,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         statusCode: status,
         timestamp,
         path,
+        trace_id: traceId,
         ...message,
       };
     }
@@ -90,6 +112,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         statusCode: status,
         timestamp,
         path,
+        trace_id: traceId,
         messages: message,
         error: this.getErrorNameFromStatus(status),
       };
@@ -100,6 +123,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       statusCode: status,
       timestamp,
       path,
+      trace_id: traceId,
       message: message,
       error: this.getErrorNameFromStatus(status),
     };
@@ -176,8 +200,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const requestInfo = `${request.method} ${request.url}`;
     const errorMessage = `ERRO DE APLICAÇÃO: ${requestInfo} - ${status}: ${exception.message || 'Erro desconhecido'}`;
 
-    // Sempre logar erros de aplicação como ERROR
-    this.logger.error(errorMessage, exception.stack);
+    // Log com detalhes adicionais para melhor análise no Loki
+    this.logger.error(errorMessage, exception.stack, 'HttpExceptionFilter', {
+      request_method: request.method,
+      request_path: request.url,
+      status_code: status,
+      error_type: exception.name || 'Error',
+      user_agent: request.headers['user-agent'],
+      ip: request.ip,
+    });
   }
 
   /**
@@ -193,6 +224,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     // Formatar mensagem de log baseada no tipo de resposta
     let logMessage = '';
+    let errorDetails = {};
+
     if (
       typeof exception.getResponse === 'function' &&
       typeof exception.getResponse() === 'object' &&
@@ -205,24 +238,39 @@ export class HttpExceptionFilter implements ExceptionFilter {
           ? responseObj.message.join(', ')
           : responseObj.message
       }`;
+
+      errorDetails = {
+        ...responseObj,
+        request_method: request.method,
+        request_path: request.url,
+        status_code: status,
+      };
     } else {
       // Para exceções com mensagem simples
       logMessage = `${requestInfo} - ${status}: ${exception.message || 'Desconhecido'}`;
+      errorDetails = {
+        request_method: request.method,
+        request_path: request.url,
+        status_code: status,
+      };
     }
 
     // Diferentes níveis de log baseado no tipo de exceção HTTP
     if (status === 429) {
       // Too Many Requests - importante monitorar
-      this.logger.warn(`Rate limit excedido: ${logMessage}`);
+      this.logger.warn(logMessage, 'HttpExceptionFilter', errorDetails);
     } else if (status === 401 || status === 403) {
       // Unauthorized/Forbidden - questões de segurança
-      this.logger.warn(`Acesso negado: ${logMessage}`);
+      this.logger.warn(logMessage, 'HttpExceptionFilter', {
+        ...errorDetails,
+        security_related: true,
+      });
     } else if (status === 404) {
       // Not Found - geralmente não é crítico
-      this.logger.debug(`Recurso não encontrado: ${logMessage}`);
+      this.logger.debug(logMessage, 'HttpExceptionFilter', errorDetails);
     } else {
       // Outros códigos 4xx - info apenas
-      this.logger.log(`Exceção HTTP: ${logMessage}`);
+      this.logger.log(logMessage, 'HttpExceptionFilter', errorDetails);
     }
   }
 
