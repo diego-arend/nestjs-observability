@@ -2,6 +2,7 @@ import { OpenAPIObject, ApiOperationOptions } from '@nestjs/swagger';
 import {
   ResponseObject,
   OperationObject,
+  ReferenceObject,
 } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
 
 /**
@@ -108,6 +109,11 @@ const USER_API_OPERATIONS = {
     description:
       'Atualiza os dados de um usuário existente com base no ID fornecido. A senha, se fornecida, será hasheada automaticamente.',
   } as ApiOperationOptions,
+  REMOVE_USER: {
+    summary: 'Remover usuário',
+    description:
+      'Remove permanentemente um usuário do sistema com base no ID fornecido.',
+  } as ApiOperationOptions,
 };
 
 /**
@@ -184,13 +190,20 @@ function enhanceUpdateRequestBody(operation: OperationObject): void {
 }
 
 /**
- * Adiciona um exemplo à resposta do Swagger
+ * Adiciona um exemplo à resposta do Swagger, verificando o tipo do objeto
  */
 function addResponseExample(
-  response: ResponseObject,
+  response: ResponseObject | ReferenceObject,
   example: any,
   meta: { summary?: string; description?: string } = {},
 ): void {
+  // Verificar se não é uma referência
+  if ('$ref' in response) {
+    console.warn('Não é possível adicionar exemplos a uma referência');
+    return;
+  }
+
+  // A partir deste ponto, response é garantidamente um ResponseObject
   if (!response.content) {
     response.content = {};
   }
@@ -216,25 +229,6 @@ function addResponseExample(
 export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
   if (!document.paths) return;
 
-  // Remova este bloco que cria um novo esquema de segurança:
-  /*
-  if (!document.components) {
-    document.components = {};
-  }
-
-  if (!document.components.securitySchemes) {
-    document.components.securitySchemes = {
-      bearerAuth: {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        description: 'Digite o token JWT sem o prefixo Bearer.', // Mesma descrição do auth module
-      },
-    };
-  }
-  */
-
-  // Em vez disso, apenas verifique se o esquema já existe
   if (!document.components?.securitySchemes?.bearerAuth) {
     console.warn(
       'Aviso: esquema de segurança bearerAuth não encontrado no documento OpenAPI',
@@ -563,6 +557,71 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
     // Adicionar resposta de erro de autenticação
     if (updateOp.responses && !updateOp.responses['401']) {
       updateOp.responses['401'] = {
+        description: 'Não autorizado - Token JWT ausente ou inválido',
+        content: {
+          'application/json': {
+            examples: {
+              unauthorized: {
+                value: USER_ERROR_EXAMPLES.UNAUTHORIZED,
+                summary: 'Acesso não autorizado',
+                description: 'O token JWT está ausente, expirado ou é inválido',
+              },
+            },
+          },
+        },
+      };
+    }
+  }
+
+  if (document.paths['/users/{id}'] && document.paths['/users/{id}'].delete) {
+    const deleteOp = document.paths['/users/{id}'].delete;
+    enhanceOperation(deleteOp, USER_API_OPERATIONS.REMOVE_USER);
+
+    // Configuração explícita de segurança
+    deleteOp.security = [{ bearerAuth: [] }];
+
+    deleteOp.description +=
+      '\n\nRemove permanentemente um usuário do sistema. Esta operação não pode ser desfeita.' +
+      '\n\n**Este endpoint requer autenticação JWT.** Use o botão Authorize acima para fornecer seu token JWT.';
+
+    // Melhorar descrição do parâmetro de caminho (ApiParam)
+    enhanceIdParameter(deleteOp);
+
+    // Adicionar resposta 204 (No Content)
+    if (!deleteOp.responses) {
+      deleteOp.responses = {};
+    }
+
+    if (!deleteOp.responses['204']) {
+      deleteOp.responses['204'] = {
+        description: 'Usuário removido com sucesso',
+      };
+    }
+
+    // Adicionar resposta 404 (Not Found)
+    if (!deleteOp.responses['404'] || !('$ref' in deleteOp.responses['404'])) {
+      if (!deleteOp.responses['404']) {
+        deleteOp.responses['404'] = {
+          description: 'Usuário não encontrado',
+        };
+      }
+
+      // Verificar se não é um objeto de referência
+      if (deleteOp.responses['404'] && !('$ref' in deleteOp.responses['404'])) {
+        addResponseExample(
+          deleteOp.responses['404'],
+          USER_ERROR_EXAMPLES.NOT_FOUND,
+          {
+            summary: 'Usuário não encontrado',
+            description: 'Não existe usuário com o ID informado',
+          },
+        );
+      }
+    }
+
+    // Adicionar resposta de erro de autenticação
+    if (!deleteOp.responses['401']) {
+      deleteOp.responses['401'] = {
         description: 'Não autorizado - Token JWT ausente ou inválido',
         content: {
           'application/json': {

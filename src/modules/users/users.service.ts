@@ -178,6 +178,35 @@ export class UsersService {
   }
 
   /**
+   * Remove um usuário do sistema
+   * @param id ID do usuário a ser removido
+   */
+  async remove(id: number): Promise<void> {
+    try {
+      // Verificar se o usuário existe
+      const user = await this.usersRepository.findOneBy({ id });
+      if (!user) {
+        throw new NotFoundException('Usuário', id);
+      }
+
+      // Remover o usuário
+      await this.usersRepository.remove(user);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+
+      this.logger.error(
+        `Erro ao remover usuário com ID ${id}: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException(
+        `Erro ao remover usuário com ID ${id}`,
+      );
+    }
+  }
+
+  /**
    * Método adicional para validar credenciais do usuário (login)
    */
   async validateCredentials(
