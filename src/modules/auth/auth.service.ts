@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { CreateUserDto } from '../users/dto/create-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -27,26 +28,48 @@ export class AuthService {
     }
 
     // Gerar token JWT
+    return this.generateAuthResponse(user.id, user.email);
+  }
+
+  /**
+   * Registra um novo usuário e retorna um token JWT válido
+   */
+  async signup(createUserDto: CreateUserDto): Promise<AuthResponseDto> {
+    this.logger.log(
+      `Tentativa de registro para o email: ${createUserDto.email}`,
+    );
+
+    // Usar o serviço de usuários para criar o novo usuário
+    const newUser = await this.usersService.create(createUserDto);
+
+    this.logger.log(`Usuário registrado com sucesso: ${createUserDto.email}`);
+
+    // Gerar token JWT para o novo usuário
+    return this.generateAuthResponse(newUser.id, newUser.email);
+  }
+
+  /**
+   * Função auxiliar para gerar a resposta de autenticação padrão
+   */
+  private generateAuthResponse(userId: number, email: string): AuthResponseDto {
     const expiresIn = this.configService.get<string>('JWT_EXPIRES_IN', '1h');
     const expiresInSeconds = this.getExpiresInSeconds(expiresIn);
 
     const payload = {
-      sub: user.id,
-      email: user.email,
-      roles: ['user'], // Você pode implementar roles no futuro
+      sub: userId,
+      email: email,
+      roles: ['user'], // Perfil padrão para novos usuários
     };
 
     const token = this.jwtService.sign(payload, {
       expiresIn,
     });
 
-    this.logger.log(`Usuário autenticado com sucesso: ${email}`);
-
     return {
       access_token: token,
       token_type: 'Bearer',
       expires_at: Math.floor(Date.now() / 1000) + expiresInSeconds,
-      user_id: user.id,
+      user_id: userId,
     };
   }
 

@@ -19,6 +19,7 @@ import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { Public } from './decorators/public.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CreateUserDto } from '../users/dto/create-user.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -43,6 +44,30 @@ export class AuthController {
   })
   async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
     return this.authService.login(loginDto);
+  }
+
+  @Public()
+  @Post('signup')
+  @ApiOperation({
+    summary: 'Registrar novo usuário',
+    description:
+      'Cria uma nova conta de usuário e retorna o token de autenticação',
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Usuário registrado com sucesso',
+    type: AuthResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Dados inválidos fornecidos',
+  })
+  @ApiResponse({
+    status: HttpStatus.CONFLICT,
+    description: 'Email já está em uso',
+  })
+  async signup(@Body() createUserDto: CreateUserDto): Promise<AuthResponseDto> {
+    return this.authService.signup(createUserDto);
   }
 
   @UseGuards(JwtAuthGuard)

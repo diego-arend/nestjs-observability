@@ -30,7 +30,7 @@ export function setupSwagger(app: INestApplication): OpenAPIObject {
   enhanceUsersSwaggerDocs(document);
   enhanceAuthSwaggerDocs(document);
 
-  // Filtrar endpoints não relacionados a usuários
+  // Filtrar endpoints internos, mantendo users e auth
   filterInternalEndpoints(document);
 
   // Configurar o endpoint do Swagger com opções personalizadas
@@ -49,26 +49,32 @@ export function setupSwagger(app: INestApplication): OpenAPIObject {
 }
 
 /**
- * Remove endpoints que não estão relacionados ao módulo de usuários
+ * Remove endpoints que não estão relacionados aos módulos principais
  */
 function filterInternalEndpoints(document: OpenAPIObject) {
   // Lista de caminhos que não devemos incluir na documentação
   const internalPathsPatterns = ['/health', '/metrics', '/healthcheck'];
 
+  // Lista de prefixos de caminhos que queremos manter
+  const allowedPrefixes = ['/users', '/auth'];
+
   // Remover paths internos
   if (document.paths) {
     Object.keys(document.paths).forEach((path) => {
+      // Verificar se é um caminho interno ou não começa com um prefixo permitido
       if (
         internalPathsPatterns.some((pattern) => path.startsWith(pattern)) ||
-        !path.startsWith('/users')
+        !allowedPrefixes.some((prefix) => path.startsWith(prefix))
       ) {
         delete document.paths[path];
       }
     });
   }
 
-  // Manter apenas a tag 'users'
+  // Manter apenas tags relevantes
   if (document.tags) {
-    document.tags = document.tags.filter((tag) => tag.name === 'users');
+    document.tags = document.tags.filter((tag) =>
+      ['users', 'auth'].includes(tag.name),
+    );
   }
 }

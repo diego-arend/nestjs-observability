@@ -50,7 +50,11 @@ export class UsersService {
         password: hashedPassword,
       });
 
-      return await this.usersRepository.save(user);
+      const savedUser = await this.usersRepository.save(user);
+
+      // Retornar o usuário criado sem a senha
+      const { ...result } = savedUser;
+      return result;
     } catch (error) {
       // Tratamento específico para violação de constraint unique
       if (error.code === '23505') {

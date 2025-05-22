@@ -19,6 +19,16 @@ export function enhanceAuthSwaggerDocs(document: OpenAPIObject): void {
     }
   }
 
+  if (document.paths && document.paths['/auth/signup']) {
+    if (document.paths['/auth/signup'].post) {
+      const signupOp = document.paths['/auth/signup'].post;
+      signupOp.description =
+        'Este endpoint permite que novos usuários se registrem na plataforma. ' +
+        'Após o registro bem-sucedido, um token JWT é retornado para que o usuário ' +
+        'já esteja autenticado após o cadastro, sem necessidade de login separado.';
+    }
+  }
+
   if (document.paths && document.paths['/auth/profile']) {
     if (document.paths['/auth/profile'].get) {
       const profileOp = document.paths['/auth/profile'].get;
