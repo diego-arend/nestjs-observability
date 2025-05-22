@@ -22,4 +22,14 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsOptional()
   @IsEmail({}, { message: 'O email deve ser um endereço de email válido' })
   email?: string;
+
+  @ApiProperty({
+    description: 'Senha do usuário',
+    example: 'senhaAtualizada123',
+    required: false,
+  })
+  @IsOptional()
+  @IsString({ message: 'A senha deve ser uma string' })
+  @MinLength(8, { message: 'A senha deve ter pelo menos 8 caracteres' })
+  password?: string;
 }

@@ -35,6 +35,8 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
     if (document.paths['/users'].post) {
       const postOp = document.paths['/users'].post;
       enhanceOperation(postOp, USER_API_OPERATIONS.CREATE_USER);
+      postOp.description +=
+        '\n\nEste endpoint cria um novo usuário com nome, email e senha. A senha será armazenada de forma segura (hasheada) e nunca será retornada nas respostas.';
 
       // Adicionar exemplo de request body
       if (postOp.requestBody && !('$ref' in postOp.requestBody)) {
@@ -51,6 +53,7 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
               value: {
                 name: 'João Silva',
                 email: 'joao.silva@exemplo.com',
+                password: 'Senha@123',
               },
             },
             invalidUser: {
@@ -59,6 +62,7 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
               value: {
                 name: 'João Silva',
                 email: 'email-invalido',
+                password: '123', // Senha muito curta
               },
             },
           };
@@ -148,7 +152,7 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
       const getOp = document.paths['/users'].get;
       enhanceOperation(getOp, USER_API_OPERATIONS.FIND_ALL);
       getOp.description +=
-        '\n\nEste endpoint retorna todos os usuários cadastrados na plataforma sem paginação.';
+        '\n\nEste endpoint retorna todos os usuários cadastrados na plataforma sem paginação. As senhas não são incluídas nas respostas por motivos de segurança.';
 
       if (getOp.responses) {
         enhanceResponse(
@@ -209,7 +213,7 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
     const getOneOp = document.paths['/users/{id}'].get;
     enhanceOperation(getOneOp, USER_API_OPERATIONS.FIND_ONE);
     getOneOp.description +=
-      '\n\nRetorna detalhes de um único usuário usando seu ID numérico.';
+      '\n\nRetorna detalhes de um único usuário usando seu ID numérico. A senha não é incluída na resposta por motivos de segurança.';
 
     // Melhorar descrição do parâmetro de caminho (ApiParam)
     if (getOneOp.parameters && getOneOp.parameters.length > 0) {
@@ -295,7 +299,7 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
     const updateOp = document.paths['/users/{id}'].put;
     enhanceOperation(updateOp, USER_API_OPERATIONS.UPDATE_USER);
     updateOp.description +=
-      '\n\nAtualiza os dados de um usuário existente com validação dos mesmos campos usados na criação.';
+      '\n\nAtualiza os dados de um usuário existente com validação dos mesmos campos usados na criação. Caso a senha seja atualizada, ela será hasheada automaticamente antes de ser armazenada. A senha nunca é retornada nas respostas.';
 
     // Melhorar descrição do parâmetro de caminho (ApiParam)
     if (updateOp.parameters && updateOp.parameters.length > 0) {
@@ -330,13 +334,22 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
             value: {
               name: 'João Silva Atualizado',
               email: 'joao.silva.novo@exemplo.com',
+              password: 'NovaSenha@123',
             },
           },
           partialUpdate: {
             summary: 'Atualização parcial (apenas nome)',
-            description: 'Atualiza apenas o nome do usuário, mantendo o email',
+            description:
+              'Atualiza apenas o nome do usuário, mantendo o email e senha',
             value: {
               name: 'João Silva Atualizado',
+            },
+          },
+          passwordUpdate: {
+            summary: 'Atualização apenas da senha',
+            description: 'Atualiza apenas a senha do usuário',
+            value: {
+              password: 'NovaSenha@123',
             },
           },
         };

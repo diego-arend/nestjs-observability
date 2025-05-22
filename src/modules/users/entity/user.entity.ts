@@ -21,6 +21,10 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @ApiProperty({ example: 'password123', description: 'Senha do usuário' })
+  @Column()
+  password: string;
+
   @ApiProperty({
     example: '2023-05-05T00:00:00Z',
     description: 'Data de criação',

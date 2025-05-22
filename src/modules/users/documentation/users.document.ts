@@ -14,6 +14,7 @@ export const USER_RESPONSE_EXAMPLES = {
     email: 'joao.silva@exemplo.com',
     createdAt: '2025-05-21T10:00:00.000Z',
     updatedAt: '2025-05-21T10:00:00.000Z',
+    // Password não é incluído na resposta por segurança
   },
   USER_LIST: [
     {
@@ -22,6 +23,7 @@ export const USER_RESPONSE_EXAMPLES = {
       email: 'joao.silva@exemplo.com',
       createdAt: '2025-05-21T10:00:00.000Z',
       updatedAt: '2025-05-21T10:00:00.000Z',
+      // Password não é incluído na resposta por segurança
     },
     {
       id: 2,
@@ -29,8 +31,24 @@ export const USER_RESPONSE_EXAMPLES = {
       email: 'maria.souza@exemplo.com',
       createdAt: '2025-05-21T11:00:00.000Z',
       updatedAt: '2025-05-21T11:00:00.000Z',
+      // Password não é incluído na resposta por segurança
     },
   ],
+  // Exemplos de request com password (não usado nas respostas)
+  CREATE_USER_REQUEST: {
+    name: 'João Silva',
+    email: 'joao.silva@exemplo.com',
+    password: 'Senha@123',
+  },
+  UPDATE_USER_REQUEST: {
+    name: 'João Silva Atualizado',
+    email: 'joao.silva.novo@exemplo.com',
+    password: 'NovaSenha@123',
+  },
+  PARTIAL_UPDATE_REQUEST: {
+    name: 'João Silva Atualizado',
+    // Atualização parcial mantendo o mesmo email e senha
+  },
 };
 
 /**
@@ -52,6 +70,8 @@ export const USER_ERROR_EXAMPLES = {
     message: [
       'email deve ser um endereço de email válido',
       'name não deve estar vazio',
+      'password deve conter pelo menos 8 caracteres',
+      'password deve incluir letras maiúsculas, minúsculas e números',
     ],
     error: 'Bad Request',
   },
@@ -68,24 +88,25 @@ export const USER_ERROR_EXAMPLES = {
 export const USER_API_OPERATIONS = {
   CREATE_USER: {
     summary: 'Criar novo usuário',
-    description: 'Cria um novo usuário no sistema com nome e email',
+    description: 'Cria um novo usuário no sistema com nome, email e senha',
   } as ApiOperationOptions,
 
   FIND_ALL: {
     summary: 'Listar todos os usuários',
-    description: 'Retorna a lista completa de usuários cadastrados no sistema',
+    description:
+      'Retorna a lista completa de usuários cadastrados no sistema (sem incluir senhas)',
   } as ApiOperationOptions,
 
   FIND_ONE: {
     summary: 'Buscar usuário por ID',
     description:
-      'Localiza e retorna os dados de um usuário específico pelo seu ID',
+      'Localiza e retorna os dados de um usuário específico pelo seu ID (sem incluir a senha)',
   } as ApiOperationOptions,
 
   UPDATE_USER: {
     summary: 'Atualizar usuário existente',
     description:
-      'Atualiza os dados de um usuário existente com base no ID fornecido',
+      'Atualiza os dados de um usuário existente com base no ID fornecido. A senha, se fornecida, será hasheada automaticamente.',
   } as ApiOperationOptions,
 };
 

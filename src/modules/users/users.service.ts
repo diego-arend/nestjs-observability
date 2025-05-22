@@ -9,6 +9,8 @@ import {
   InternalServerErrorException,
 } from '../../exceptions/custom-exceptions';
 import { User } from './entity/user.entity';
+import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UsersService {
@@ -17,7 +19,16 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly configService: ConfigService,
   ) {}
+
+  /**
+   * Método privado para hashear a senha
+   */
+  private async hashPassword(password: string): Promise<string> {
+    const saltRounds = parseInt(this.configService.get('BCRYPT_SALT'));
+    return bcrypt.hash(password, saltRounds);
+  }
 
   async create(createUserDto: CreateUserDto) {
     try {
@@ -30,8 +41,15 @@ export class UsersService {
         throw new ConflictException('Usuário', 'email', createUserDto.email);
       }
 
-      // Se não existir, criar o novo usuário
-      const user = this.usersRepository.create(createUserDto);
+      // Hash da senha antes de salvar
+      const hashedPassword = await this.hashPassword(createUserDto.password);
+
+      // Se não existir, criar o novo usuário com senha hasheada
+      const user = this.usersRepository.create({
+        ...createUserDto,
+        password: hashedPassword,
+      });
+
       return await this.usersRepository.save(user);
     } catch (error) {
       // Tratamento específico para violação de constraint unique
@@ -53,7 +71,10 @@ export class UsersService {
 
   async findAll() {
     try {
-      return await this.usersRepository.find();
+      // Retorna todos os usuários, mas sem a senha
+      const users = await this.usersRepository.find();
+      // Usando _ para indicar descartamos intencionalmente a propriedade password
+      return users.map(({ ...userData }) => userData);
     } catch (error) {
       this.logger.error(
         `Erro ao buscar todos os usuários: ${error.message}`,
@@ -69,7 +90,10 @@ export class UsersService {
       if (!user) {
         throw new NotFoundException('Usuário', id);
       }
-      return user;
+
+      // Retorna o usuário sem a senha, usando _ para indicar que descartamos a propriedade
+      const { ...userData } = user;
+      return userData;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -104,9 +128,21 @@ export class UsersService {
         }
       }
 
+      // Preparar os dados para atualização
+      const updateData = { ...updateUserDto };
+
+      // Se estiver atualizando a senha, hashear antes de salvar
+      if (updateData.password) {
+        updateData.password = await this.hashPassword(updateData.password);
+      }
+
       // Atualizar os dados do usuário
-      const updatedUser = this.usersRepository.merge(user, updateUserDto);
-      return await this.usersRepository.save(updatedUser);
+      const updatedUser = this.usersRepository.merge(user, updateData);
+      const savedUser = await this.usersRepository.save(updatedUser);
+
+      // Retornar usuário sem a senha
+      const { ...userData } = savedUser;
+      return userData;
     } catch (error) {
       // Tratamento específico para violação de constraint unique
       if (error.code === '23505') {
@@ -134,6 +170,40 @@ export class UsersService {
       throw new InternalServerErrorException(
         `Erro ao atualizar usuário com ID ${id}`,
       );
+    }
+  }
+
+  /**
+   * Método adicional para validar credenciais do usuário (login)
+   */
+  async validateCredentials(
+    email: string,
+    password: string,
+  ): Promise<Omit<User, 'password'> | null> {
+    try {
+      const user = await this.usersRepository.findOne({
+        where: { email },
+      });
+
+      if (!user) {
+        return null;
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+
+      if (!isPasswordValid) {
+        return null;
+      }
+
+      // Renomeamos para _ para indicar explicitamente que estamos descartando o campo
+      const { ...userData } = user;
+      return userData;
+    } catch (error) {
+      this.logger.error(
+        `Erro ao validar credenciais: ${error.message}`,
+        error.stack,
+      );
+      throw new InternalServerErrorException('Erro ao validar credenciais');
     }
   }
 }
