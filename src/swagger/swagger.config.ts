@@ -19,12 +19,25 @@ export function setupSwagger(app: INestApplication): OpenAPIObject {
     .setVersion('1.0')
     .addTag('users', 'Gerenciamento de usuários')
     .addTag('auth', 'Autenticação e autorização')
-    .addBearerAuth()
+    // Defina apenas uma vez o esquema de segurança aqui
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        description: 'Digite o token JWT sem o prefixo Bearer.',
+        in: 'header',
+      },
+      'bearerAuth', // Este é o nome do esquema que será referenciado
+    )
     .build();
 
   // Gerar o documento base sem especificar módulos a incluir
-  // Desta forma, todos os endpoints são documentados inicialmente
   const document = SwaggerModule.createDocument(app, config);
+
+  // Importante: Remover esquemas de segurança duplicados antes de aprimorar a documentação
+  ensureSingleSecurityScheme(document);
 
   // Aprimorar a documentação
   enhanceUsersSwaggerDocs(document);
@@ -36,6 +49,7 @@ export function setupSwagger(app: INestApplication): OpenAPIObject {
   // Configurar o endpoint do Swagger com opções personalizadas
   SwaggerModule.setup('api-docs', app, document, {
     swaggerOptions: {
+      persistAuthorization: true,
       docExpansion: 'list',
       defaultModelsExpandDepth: 1,
       defaultModelExpandDepth: 1,
@@ -46,6 +60,37 @@ export function setupSwagger(app: INestApplication): OpenAPIObject {
   });
 
   return document;
+}
+
+/**
+ * Garante que exista apenas um esquema de segurança do tipo bearer no documento
+ */
+function ensureSingleSecurityScheme(document: OpenAPIObject): void {
+  if (!document.components) {
+    document.components = {};
+  }
+
+  if (!document.components.securitySchemes) {
+    document.components.securitySchemes = {};
+  }
+
+  // Garantir que existe apenas o esquema 'bearerAuth' para autenticação JWT
+  if (document.components.securitySchemes.bearerAuth) {
+    // Remover quaisquer outros esquemas de segurança do tipo Bearer
+    Object.keys(document.components.securitySchemes).forEach((key) => {
+      const scheme = document.components.securitySchemes[key];
+
+      // Verificar se não é uma referência e se é um esquema Bearer HTTP
+      if (
+        key !== 'bearerAuth' &&
+        !('$ref' in scheme) && // Verificar se não é uma referência
+        scheme.type === 'http' &&
+        scheme.scheme === 'bearer'
+      ) {
+        delete document.components.securitySchemes[key];
+      }
+    });
+  }
 }
 
 /**

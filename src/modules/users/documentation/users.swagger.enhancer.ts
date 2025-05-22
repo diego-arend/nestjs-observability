@@ -216,6 +216,31 @@ function addResponseExample(
 export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
   if (!document.paths) return;
 
+  // Remova este bloco que cria um novo esquema de segurança:
+  /*
+  if (!document.components) {
+    document.components = {};
+  }
+
+  if (!document.components.securitySchemes) {
+    document.components.securitySchemes = {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Digite o token JWT sem o prefixo Bearer.', // Mesma descrição do auth module
+      },
+    };
+  }
+  */
+
+  // Em vez disso, apenas verifique se o esquema já existe
+  if (!document.components?.securitySchemes?.bearerAuth) {
+    console.warn(
+      'Aviso: esquema de segurança bearerAuth não encontrado no documento OpenAPI',
+    );
+  }
+
   // Adicionar informações extras às tags
   if (document.tags) {
     const usersTag = document.tags.find((tag) => tag.name === 'users');
@@ -225,18 +250,26 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
     }
   }
 
+  // Definir segurança global para todos os endpoints users primeiro
+  // Isso garante que todos tenham a configuração básica
+  document.security = document.security || [];
+  if (!document.security.some((sec) => 'bearerAuth' in sec)) {
+    document.security.push({ bearerAuth: [] });
+  }
+
   // Aprimorar o endpoint POST /users
   if (document.paths['/users']) {
-    // Adicionar exemplos detalhados para POST
+    // POST /users
     if (document.paths['/users'].post) {
       const postOp = document.paths['/users'].post;
       enhanceOperation(postOp, USER_API_OPERATIONS.CREATE_USER);
+
+      // Configuração explícita de segurança
+      postOp.security = [{ bearerAuth: [] }];
+
       postOp.description +=
         '\n\nEste endpoint cria um novo usuário com nome, email e senha. A senha será armazenada de forma segura (hasheada) e nunca será retornada nas respostas.' +
         '\n\n**Este endpoint requer autenticação JWT.** Use o botão Authorize acima para fornecer seu token JWT.';
-
-      // Adicionar requisito de autenticação
-      postOp.security = [{ bearerAuth: [] }];
 
       // Adicionar exemplo de request body
       if (postOp.requestBody && !('$ref' in postOp.requestBody)) {
@@ -331,16 +364,17 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
       }
     }
 
-    // GET /users (findAll) - Protegido com JWT
+    // GET /users
     if (document.paths['/users'].get) {
       const getOp = document.paths['/users'].get;
       enhanceOperation(getOp, USER_API_OPERATIONS.FIND_ALL);
+
+      // Configuração explícita de segurança
+      getOp.security = [{ bearerAuth: [] }];
+
       getOp.description +=
         '\n\nEste endpoint retorna todos os usuários cadastrados na plataforma sem paginação. As senhas não são incluídas nas respostas por motivos de segurança.' +
         '\n\n**Este endpoint requer autenticação JWT.** Use o botão Authorize acima para fornecer seu token JWT.';
-
-      // Adicionar requisito de autenticação
-      getOp.security = [{ bearerAuth: [] }];
 
       // Adicionar exemplos de resposta para o endpoint GET /users
       if (
@@ -380,16 +414,17 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
     }
   }
 
-  // Aprimorar o endpoint GET /users/{id} (findOne) - Protegido com JWT
+  // GET /users/{id} - em um bloco separado
   if (document.paths['/users/{id}'] && document.paths['/users/{id}'].get) {
     const getOneOp = document.paths['/users/{id}'].get;
     enhanceOperation(getOneOp, USER_API_OPERATIONS.FIND_ONE);
+
+    // Configuração explícita de segurança
+    getOneOp.security = [{ bearerAuth: [] }];
+
     getOneOp.description +=
       '\n\nRetorna detalhes de um único usuário usando seu ID numérico. A senha não é incluída na resposta por motivos de segurança.' +
       '\n\n**Este endpoint requer autenticação JWT.** Use o botão Authorize acima para fornecer seu token JWT.';
-
-    // Adicionar requisito de autenticação
-    getOneOp.security = [{ bearerAuth: [] }];
 
     // Melhorar descrição do parâmetro de caminho (ApiParam)
     enhanceIdParameter(getOneOp);
@@ -443,105 +478,143 @@ export function enhanceUsersSwaggerDocs(document: OpenAPIObject): void {
         },
       };
     }
+  }
 
-    // Aprimorar o endpoint PUT /users/{id} (update) - Protegido com JWT
-    if (document.paths['/users/{id}'] && document.paths['/users/{id}'].put) {
-      const updateOp = document.paths['/users/{id}'].put;
-      enhanceOperation(updateOp, USER_API_OPERATIONS.UPDATE_USER);
-      updateOp.description +=
-        '\n\nAtualiza os dados de um usuário existente com validação dos mesmos campos usados na criação. Caso a senha seja atualizada, ela será hasheada automaticamente antes de ser armazenada. A senha nunca é retornada nas respostas.' +
-        '\n\n**Este endpoint requer autenticação JWT.** Use o botão Authorize acima para fornecer seu token JWT.';
+  // PUT /users/{id} - em um bloco separado completamente independente do GET
+  if (document.paths['/users/{id}'] && document.paths['/users/{id}'].put) {
+    const updateOp = document.paths['/users/{id}'].put;
+    enhanceOperation(updateOp, USER_API_OPERATIONS.UPDATE_USER);
 
-      // Adicionar requisito de autenticação
-      updateOp.security = [{ bearerAuth: [] }];
+    // Configuração explícita de segurança
+    updateOp.security = [{ bearerAuth: [] }];
 
-      // Melhorar descrição do parâmetro de caminho (ApiParam)
-      enhanceIdParameter(updateOp);
+    updateOp.description +=
+      '\n\nAtualiza os dados de um usuário existente com validação dos mesmos campos usados na criação. Caso a senha seja atualizada, ela será hasheada automaticamente antes de ser armazenada. A senha nunca é retornada nas respostas.' +
+      '\n\n**Este endpoint requer autenticação JWT.** Use o botão Authorize acima para fornecer seu token JWT.';
 
-      // Adicionar exemplo de request body (ApiBody)
-      enhanceUpdateRequestBody(updateOp);
+    // Melhorar descrição do parâmetro de caminho (ApiParam)
+    enhanceIdParameter(updateOp);
 
-      // Adicionar exemplos de resposta para o endpoint PUT /users/{id}
-      if (
-        updateOp.responses &&
-        updateOp.responses['200'] &&
-        !('$ref' in updateOp.responses['200'])
-      ) {
-        addResponseExample(
-          updateOp.responses['200'],
-          USER_RESPONSE_EXAMPLES.SINGLE_USER,
-          {
-            summary: 'Usuário atualizado',
-            description:
-              'Retorna os dados atualizados do usuário (sem a senha)',
-          },
-        );
-      }
+    // Adicionar exemplo de request body (ApiBody)
+    enhanceUpdateRequestBody(updateOp);
 
-      if (
-        updateOp.responses &&
-        updateOp.responses['404'] &&
-        !('$ref' in updateOp.responses['404'])
-      ) {
-        addResponseExample(
-          updateOp.responses['404'],
-          USER_ERROR_EXAMPLES.NOT_FOUND,
-          {
-            summary: 'Usuário não encontrado',
-            description: 'Não existe usuário com o ID informado',
-          },
-        );
-      }
+    // Adicionar exemplos de resposta para o endpoint PUT /users/{id}
+    if (
+      updateOp.responses &&
+      updateOp.responses['200'] &&
+      !('$ref' in updateOp.responses['200'])
+    ) {
+      addResponseExample(
+        updateOp.responses['200'],
+        USER_RESPONSE_EXAMPLES.SINGLE_USER,
+        {
+          summary: 'Usuário atualizado',
+          description: 'Retorna os dados atualizados do usuário (sem a senha)',
+        },
+      );
+    }
 
-      if (
-        updateOp.responses &&
-        updateOp.responses['400'] &&
-        !('$ref' in updateOp.responses['400'])
-      ) {
-        addResponseExample(
-          updateOp.responses['400'],
-          USER_ERROR_EXAMPLES.VALIDATION_ERROR,
-          {
-            summary: 'Dados inválidos',
-            description: 'Os dados fornecidos não passaram na validação',
-          },
-        );
-      }
+    if (
+      updateOp.responses &&
+      updateOp.responses['404'] &&
+      !('$ref' in updateOp.responses['404'])
+    ) {
+      addResponseExample(
+        updateOp.responses['404'],
+        USER_ERROR_EXAMPLES.NOT_FOUND,
+        {
+          summary: 'Usuário não encontrado',
+          description: 'Não existe usuário com o ID informado',
+        },
+      );
+    }
 
-      if (
-        updateOp.responses &&
-        updateOp.responses['409'] &&
-        !('$ref' in updateOp.responses['409'])
-      ) {
-        addResponseExample(
-          updateOp.responses['409'],
-          USER_ERROR_EXAMPLES.CONFLICT,
-          {
-            summary: 'Email já em uso',
-            description:
-              'O novo email fornecido já está associado a outro usuário',
-          },
-        );
-      }
+    if (
+      updateOp.responses &&
+      updateOp.responses['400'] &&
+      !('$ref' in updateOp.responses['400'])
+    ) {
+      addResponseExample(
+        updateOp.responses['400'],
+        USER_ERROR_EXAMPLES.VALIDATION_ERROR,
+        {
+          summary: 'Dados inválidos',
+          description: 'Os dados fornecidos não passaram na validação',
+        },
+      );
+    }
 
-      // Adicionar resposta de erro de autenticação
-      if (updateOp.responses && !updateOp.responses['401']) {
-        updateOp.responses['401'] = {
-          description: 'Não autorizado - Token JWT ausente ou inválido',
-          content: {
-            'application/json': {
-              examples: {
-                unauthorized: {
-                  value: USER_ERROR_EXAMPLES.UNAUTHORIZED,
-                  summary: 'Acesso não autorizado',
-                  description:
-                    'O token JWT está ausente, expirado ou é inválido',
-                },
+    if (
+      updateOp.responses &&
+      updateOp.responses['409'] &&
+      !('$ref' in updateOp.responses['409'])
+    ) {
+      addResponseExample(
+        updateOp.responses['409'],
+        USER_ERROR_EXAMPLES.CONFLICT,
+        {
+          summary: 'Email já em uso',
+          description:
+            'O novo email fornecido já está associado a outro usuário',
+        },
+      );
+    }
+
+    // Adicionar resposta de erro de autenticação
+    if (updateOp.responses && !updateOp.responses['401']) {
+      updateOp.responses['401'] = {
+        description: 'Não autorizado - Token JWT ausente ou inválido',
+        content: {
+          'application/json': {
+            examples: {
+              unauthorized: {
+                value: USER_ERROR_EXAMPLES.UNAUTHORIZED,
+                summary: 'Acesso não autorizado',
+                description: 'O token JWT está ausente, expirado ou é inválido',
               },
             },
           },
-        };
-      }
+        },
+      };
     }
   }
+
+  // Aplicar segurança a todos os endpoints do módulo users para garantir
+  setGlobalSecurityForUserEndpoints(document);
+}
+
+/**
+ * Define segurança global para todos os endpoints que começam com /users
+ */
+function setGlobalSecurityForUserEndpoints(document: OpenAPIObject): void {
+  if (!document.paths) return;
+
+  // Garantir que bearerAuth está definido no documento
+  if (!document.components?.securitySchemes?.bearerAuth) {
+    if (!document.components) document.components = {};
+    if (!document.components.securitySchemes)
+      document.components.securitySchemes = {};
+
+    document.components.securitySchemes.bearerAuth = {
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      description: 'Digite o token JWT sem o prefixo Bearer.',
+    };
+  }
+
+  // Aplicar segurança aos endpoints /users
+  Object.keys(document.paths).forEach((path) => {
+    if (path.startsWith('/users')) {
+      const pathItem = document.paths[path];
+
+      // Aplicar segurança para cada método HTTP
+      ['get', 'post', 'put', 'delete', 'patch'].forEach((method) => {
+        if (pathItem[method]) {
+          // Substituir a configuração existente para garantir consistência
+          pathItem[method].security = [{ bearerAuth: [] }];
+        }
+      });
+    }
+  });
 }
