@@ -1,3 +1,3 @@
-import { AppDataSource } from './src/providers/database/datasource';
+import { AppDataSource } from './src/infraestructure/database/postgres/datasource';
 
 export default AppDataSource;

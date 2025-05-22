@@ -75,7 +75,7 @@ export async function bootstrap() {
   // Configuração do Swagger usando o módulo centralizado
   setupSwagger(app);
 
-  await app.listen(process.env.PORT || 3001);
+  await app.listen(process.env.PORT);
   logger.log(`Application is running on: ${await app.getUrl()}`);
 
   logger.log(

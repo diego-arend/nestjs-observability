@@ -10,7 +10,7 @@ RUN apk add --no-cache wget bash curl
 RUN npm install -g pnpm@latest
 
 # Copiar arquivos de configuração primeiro (melhor para cache)
-COPY package.json pnpm-lock.yaml* tsconfig*.json ./
+COPY package.json pnpm-lock.yaml* tsconfig*.json typeorm.config.ts ./
 
 # Instalar todas as dependências (incluindo devDependencies)
 RUN pnpm install --frozen-lockfile
