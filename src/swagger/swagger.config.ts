@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder, OpenAPIObject } from '@nestjs/swagger';
 import { enhanceUsersSwaggerDocs } from '../modules/users/documentation/users.swagger.enhancer';
+import { enhanceAuthSwaggerDocs } from '../modules/auth/documentation/auth.swagger.enhancer';
 
 /**
  * Configura o Swagger para a aplicação NestJS
@@ -13,18 +14,21 @@ export function setupSwagger(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
     .setTitle('API de Gerenciamento de Usuários')
     .setDescription(
-      'API para criação, consulta e atualização de usuários no sistema',
+      'API para criação, consulta, autenticação e autorização de usuários',
     )
     .setVersion('1.0')
     .addTag('users', 'Gerenciamento de usuários')
+    .addTag('auth', 'Autenticação e autorização')
+    .addBearerAuth()
     .build();
 
   // Gerar o documento base sem especificar módulos a incluir
   // Desta forma, todos os endpoints são documentados inicialmente
   const document = SwaggerModule.createDocument(app, config);
 
-  // Aprimorar a documentação com informações específicas de usuários
+  // Aprimorar a documentação
   enhanceUsersSwaggerDocs(document);
+  enhanceAuthSwaggerDocs(document);
 
   // Filtrar endpoints não relacionados a usuários
   filterInternalEndpoints(document);

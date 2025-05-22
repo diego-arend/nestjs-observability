@@ -42,6 +42,80 @@ A arquitetura separa claramente as responsabilidades:
 2. **Controllers**: Focam na lógica de negócio e logs contextuais
 3. **Filtros Compartilhados**: Garantem consistência em quais endpoints são monitorados
 
+
+### Sistema de Autenticação e Autorização
+
+A aplicação implementa um robusto sistema de autenticação baseado em JWT (JSON Web Tokens), com uma abordagem segura por padrão que protege automaticamente todos os endpoints.
+
+#### Arquitetura de Segurança
+
+##### Proteção Global por Padrão
+
+Por padrão, **todos os endpoints da aplicação são protegidos** através do `JwtAuthGuard` configurado globalmente no `app.module.ts`. Isso garante que nenhuma rota fique acidentalmente exposta sem autenticação:
+
+```typescript
+@Module({
+  // imports...
+  providers: [
+    // outros providers...
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+  ],
+})
+export class AppModule {}
+```
+
+Esta abordagem de "seguro por padrão" elimina riscos comuns onde endpoints individuais podem ser esquecidos sem proteção adequada.
+
+##### Decorador @Public para Exceções
+
+Para endpoints que precisam ser acessíveis sem autenticação (como login ou registro), é **obrigatório** o uso explícito do decorador `@Public()`:
+
+```typescript
+@Public()
+@Post('login')
+async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
+  return this.authService.login(loginDto);
+}
+```
+
+Essa necessidade de marcação explícita garante que todas as rotas públicas sejam resultado de uma decisão consciente, não de uma omissão acidental.
+
+##### Autenticação Especializada para Métricas
+
+O endpoint de coleta de métricas (`/metrics`) implementa uma estratégia de autenticação diferenciada:
+
+1. É marcado como `@Public()` para contornar o `JwtAuthGuard` global
+2. Utiliza o `@UseGuards(MetricsAuthGuard)` específico que implementa autenticação HTTP Basic
+
+```typescript
+@Public()
+@UseGuards(MetricsAuthGuard)
+@Get('metrics')
+getMetrics() {
+  // Interceptado pelo PrometheusModule
+}
+```
+
+Esta configuração permite que ferramentas como o Prometheus acessem as métricas usando credenciais específicas, sem exigir tokens JWT.
+
+#### Fluxo de Autenticação
+
+1. **Obtenção do Token**: O cliente envia credenciais para `/auth/login` e recebe um token JWT
+2. **Autenticação Subsequente**: As requisições incluem o token no header `Authorization: Bearer {token}`
+3. **Verificação Automática**: O `JwtAuthGuard` valida o token em todas as requisições (exceto rotas marcadas como `@Public()`)
+4. **Autorização**: Opcionalmente, guards adicionais como `RolesGuard` podem verificar permissões específicas
+
+#### Benefícios do Sistema de Autenticação
+
+1. **Segurança por Padrão**: Todos os endpoints são protegidos automaticamente
+2. **Decisões Explícitas**: Endpoints públicos exigem marcação explícita
+3. **Flexibilidade**: Suporta diferentes estratégias de autenticação para casos específicos
+4. **Auditabilidade**: Facilita a revisão de código para identificar quais endpoints são públicos
+5. **Separação de Responsabilidades**: Aspectos de autenticação são desacoplados da lógica de negócio
+
 #### Integração com OpenTelemetry
 
 O sistema de tracing utiliza OpenTelemetry para integração com ferramentas como Jaeger ou Tempo:

@@ -3,7 +3,11 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'nestjs'
+  - job_name: 'nestjs-app'
     metrics_path: '/metrics'
+    scrape_interval: 5s
+    basic_auth:
+      username: 'prometheus'
+      password: 'your_secure_password_here'
     static_configs:
       - targets: ['nest-app:3005']

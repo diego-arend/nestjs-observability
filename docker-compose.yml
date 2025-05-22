@@ -25,6 +25,9 @@ services:
         condition: service_started
       prometheus:
         condition: service_started
+    environment:
+      - METRICS_USERNAME=prometheus
+      - METRICS_PASSWORD=your_secure_password_here
 
   postgres:
     image: postgres:15
@@ -42,12 +45,12 @@ services:
     restart: unless-stopped
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus
     container_name: prometheus
     ports:
       - '9090:9090'
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus:/etc/prometheus
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'

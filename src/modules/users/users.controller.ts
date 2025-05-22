@@ -1,64 +1,35 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Put,
-  ParseIntPipe,
-  Logger,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { NotFoundException } from '../../exceptions/custom-exceptions';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
-  private readonly logger = new Logger(UsersController.name);
-
   constructor(private readonly usersService: UsersService) {}
 
+  // A rota de criação de usuário deve ser pública para permitir cadastros
+  @Public()
   @Post()
   async create(@Body() createUserDto: CreateUserDto) {
-    this.logger.log(`Criando usuário com email: ${createUserDto.email}`);
-    const result = await this.usersService.create(createUserDto);
-    this.logger.log(`Usuário criado com sucesso: ID=${result.id}`);
-    return result;
+    return this.usersService.create(createUserDto);
   }
 
+  // As demais rotas estarão protegidas por padrão
   @Get()
   async findAll() {
-    this.logger.log('Buscando todos os usuários');
-    const users = await this.usersService.findAll();
-    this.logger.log(`Retornados ${users.length} usuários`);
-    return users;
+    return this.usersService.findAll();
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    this.logger.log(`Buscando usuário com ID: ${id}`);
-    const user = await this.usersService.findOne(id);
-
-    if (!user) {
-      this.logger.warn(`Usuário com ID ${id} não encontrado`);
-      throw new NotFoundException('Usuário', id);
-    }
-
-    this.logger.log(`Usuário ${id} encontrado: ${user.name}`);
-    return user;
+  async findOne(@Param('id') id: string) {
+    return this.usersService.findOne(+id);
   }
 
   @Put(':id')
-  async update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() updateUserDto: UpdateUserDto,
-  ) {
-    this.logger.log(`Atualizando usuário com ID: ${id}`);
-    const result = await this.usersService.update(id, updateUserDto);
-    this.logger.log(`Usuário ${id} atualizado com sucesso`);
-    return result;
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(+id, updateUserDto);
   }
 }

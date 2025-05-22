@@ -1,11 +1,14 @@
 import { Module, Global } from '@nestjs/common';
 import { PrometheusModule } from '@willsoto/nestjs-prometheus';
+import { ConfigModule } from '@nestjs/config';
 import { MetricsController } from './metrics.controller';
 import { metricsProviders } from './metrics.providers';
+import { MetricsAuthGuard } from './guards/metrics-auth.guard';
 
-@Global() // Tornando o módulo global para fácil acesso às métricas
+@Global()
 @Module({
   imports: [
+    ConfigModule,
     PrometheusModule.register({
       defaultMetrics: {
         enabled: true,
@@ -14,7 +17,7 @@ import { metricsProviders } from './metrics.providers';
     }),
   ],
   controllers: [MetricsController],
-  providers: [...metricsProviders],
+  providers: [...metricsProviders, MetricsAuthGuard],
   exports: [...metricsProviders, PrometheusModule],
 })
 export class MetricsModule {}
