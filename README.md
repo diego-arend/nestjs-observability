@@ -4,52 +4,13 @@ Uma aplicação NestJS demonstrando práticas avançadas de observabilidade com 
 
 ## Detalhes de Arquitetura
 
-### Sistema de Observabilidade
-
-A aplicação implementa uma arquitetura abrangente de observabilidade seguindo os três pilares: métricas, logs e traces. A solução foi projetada para minimizar o código boilerplate nos controllers enquanto mantém coleta consistente de dados.
-
-#### Interceptors Globais
-
-##### MetricsInterceptor
-
-O `MetricsInterceptor` captura métricas globalmente para todas as requisições HTTP:
-
-- **Coleta Automática**: Intercepta todas as requisições que passam pelo NestJS
-- **Filtragem Inteligente**: Ignora endpoints de health check e monitoramento via `shouldSkipMonitoring()`
-- **Métricas Registradas**:
-  - `http_requests_total`: Contador com labels para método, caminho e código de status
-  - `http_request_duration_seconds`: Histograma que mede latências de requisições
-
-```typescript
-// Incrementa o contador e registra duração para requisições bem-sucedidas
-this.requestCounter.inc({ method, path, statusCode });
-this.requestDuration.observe({ method, path, statusCode }, duration);
-```
-
-##### TraceIdInterceptor
-
-O `TraceIdInterceptor` implementa distributed tracing para rastreabilidade entre serviços:
-
-- **IDs Únicos**: Gera ou reutiliza IDs de trace para cada requisição
-- **Propagação**: Inclui o trace ID nos headers de resposta e contexto para logs
-- **Correlação**: Permite vincular logs, métricas e spans de uma mesma transação
-
-#### Separação de Responsabilidades
-
-A arquitetura separa claramente as responsabilidades:
-
-1. **Interceptors**: Responsáveis por métricas técnicas e coleta de traces
-2. **Controllers**: Focam na lógica de negócio e logs contextuais
-3. **Filtros Compartilhados**: Garantem consistência em quais endpoints são monitorados
-
-
-### Sistema de Autenticação e Autorização
+## Sistema de Autenticação e Autorização
 
 A aplicação implementa um robusto sistema de autenticação baseado em JWT (JSON Web Tokens), com uma abordagem segura por padrão que protege automaticamente todos os endpoints.
 
-#### Arquitetura de Segurança
+## Arquitetura de Segurança
 
-##### Proteção Global por Padrão
+## Proteção Global por Padrão
 
 Por padrão, **todos os endpoints da aplicação são protegidos** através do `JwtAuthGuard` configurado globalmente no `app.module.ts`. Isso garante que nenhuma rota fique acidentalmente exposta sem autenticação:
 
@@ -69,7 +30,7 @@ export class AppModule {}
 
 Esta abordagem de "seguro por padrão" elimina riscos comuns onde endpoints individuais podem ser esquecidos sem proteção adequada.
 
-##### Decorador @Public para Exceções
+### Decorador @Public para Exceções
 
 Para endpoints que precisam ser acessíveis sem autenticação (como login ou registro), é **obrigatório** o uso explícito do decorador `@Public()`:
 
@@ -83,7 +44,7 @@ async login(@Body() loginDto: LoginDto): Promise<AuthResponseDto> {
 
 Essa necessidade de marcação explícita garante que todas as rotas públicas sejam resultado de uma decisão consciente, não de uma omissão acidental.
 
-##### Autenticação Especializada para Métricas
+### Autenticação Especializada para Métricas
 
 O endpoint de coleta de métricas (`/metrics`) implementa uma estratégia de autenticação diferenciada:
 
@@ -115,6 +76,46 @@ Esta configuração permite que ferramentas como o Prometheus acessem as métric
 3. **Flexibilidade**: Suporta diferentes estratégias de autenticação para casos específicos
 4. **Auditabilidade**: Facilita a revisão de código para identificar quais endpoints são públicos
 5. **Separação de Responsabilidades**: Aspectos de autenticação são desacoplados da lógica de negócio
+
+
+## Sistema de Observabilidade
+
+A aplicação implementa uma arquitetura abrangente de observabilidade seguindo os três pilares: métricas, logs e traces. A solução foi projetada para minimizar o código boilerplate nos controllers enquanto mantém coleta consistente de dados.
+
+#### Interceptors Globais
+
+#### MetricsInterceptor
+
+O `MetricsInterceptor` captura métricas globalmente para todas as requisições HTTP:
+
+- **Coleta Automática**: Intercepta todas as requisições que passam pelo NestJS
+- **Filtragem Inteligente**: Ignora endpoints de health check e monitoramento via `shouldSkipMonitoring()`
+- **Métricas Registradas**:
+  - `http_requests_total`: Contador com labels para método, caminho e código de status
+  - `http_request_duration_seconds`: Histograma que mede latências de requisições
+
+```typescript
+// Incrementa o contador e registra duração para requisições bem-sucedidas
+this.requestCounter.inc({ method, path, statusCode });
+this.requestDuration.observe({ method, path, statusCode }, duration);
+```
+
+##### TraceIdInterceptor
+
+O `TraceIdInterceptor` implementa distributed tracing para rastreabilidade entre serviços:
+
+- **IDs Únicos**: Gera ou reutiliza IDs de trace para cada requisição
+- **Propagação**: Inclui o trace ID nos headers de resposta e contexto para logs
+- **Correlação**: Permite vincular logs, métricas e spans de uma mesma transação
+
+#### Separação de Responsabilidades
+
+A arquitetura separa claramente as responsabilidades:
+
+1. **Interceptors**: Responsáveis por métricas técnicas e coleta de traces
+2. **Controllers**: Focam na lógica de negócio e logs contextuais
+3. **Filtros Compartilhados**: Garantem consistência em quais endpoints são monitorados
+
 
 #### Integração com OpenTelemetry
 
