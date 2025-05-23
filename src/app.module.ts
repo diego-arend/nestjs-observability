@@ -1,27 +1,28 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AppController } from './app.controller';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { MetricsModule } from './metrics/metrics.module';
 import { LoggerModule } from './logger/logger.module';
-import { MetricsInterceptor } from './interceptors/metrics.interceptor';
 import { UsersModule } from './modules/users/users.module';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { AppController } from './app.controller';
 import { TraceIdInterceptor } from './interceptors/trace-id.interceptor';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { getTypeOrmConfig } from './infraestructure/database/postgres/datasource';
+import { MetricsInterceptor } from './interceptors/metrics.interceptor';
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true, // Tornar global para toda a aplicação
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: getTypeOrmConfig,
     }),
-    MetricsModule,
+    MetricsModule, // Importe o MetricsModule
     LoggerModule,
     UsersModule,
     AuthModule,
@@ -30,7 +31,7 @@ import { getTypeOrmConfig } from './infraestructure/database/postgres/datasource
   providers: [
     {
       provide: APP_INTERCEPTOR,
-      useClass: MetricsInterceptor,
+      useClass: MetricsInterceptor, // Será injetado do MetricsModule
     },
     {
       provide: APP_INTERCEPTOR,

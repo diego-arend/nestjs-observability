@@ -225,11 +225,16 @@
                 "value": null
               },
               {
+                "color": "yellow",
+                "value": 5
+              },
+              {
                 "color": "red",
-                "value": 1
+                "value": 10
               }
             ]
-          }
+          },
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -257,9 +262,9 @@
       "pluginVersion": "7.3.7",
       "targets": [
         {
-          "expr": "sum(rate(http_requests_total{statusCode=~\"[45].*\"}[5m]) * 60)",
+          "expr": "sum(increase(http_requests_total{statusCode=~\"[45].*\"}[1m])) / 60",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "Erros por minuto",
           "refId": "A"
         }
       ],
@@ -283,7 +288,8 @@
                 "value": null
               }
             ]
-          }
+          },
+          "unit": "reqps"
         },
         "overrides": []
       },
@@ -311,9 +317,9 @@
       "pluginVersion": "7.3.7",
       "targets": [
         {
-          "expr": "sum(rate(http_requests_total{statusCode=~\"2.*\"}[5m]) * 60)",
+          "expr": "sum(increase(http_requests_total{statusCode=~\"2.*\"}[1m])) / 60",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "Requisições por minuto",
           "refId": "A"
         }
       ],
@@ -328,7 +334,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "Prometheus",
-      "description": "Distribuição de erros HTTP por código de status",
+      "description": "Distribuição de erros HTTP por código de status na última hora",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -371,7 +377,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(http_requests_total{statusCode=~\"[45].*\"}[5m]) * 60) by (statusCode)",
+          "expr": "sum(increase(http_requests_total{statusCode=~\"[45].*\"}[1h])) by (statusCode)",
           "interval": "",
           "legendFormat": "{{statusCode}}",
           "refId": "A"
@@ -381,7 +387,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Erros por Código de Status (por minuto)",
+      "title": "Erros por Código de Status (última hora)",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -398,10 +404,10 @@
       "yaxes": [
         {
           "format": "short",
-          "label": null,
+          "label": "Número de Erros",
           "logBase": 1,
           "max": null,
-          "min": null,
+          "min": "0",
           "show": true
         },
         {
@@ -410,7 +416,7 @@
           "logBase": 1,
           "max": null,
           "min": null,
-          "show": true
+          "show": false
         }
       ],
       "yaxis": {

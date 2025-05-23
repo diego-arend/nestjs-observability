@@ -3,64 +3,53 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
-  Logger,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
+import { tap } from 'rxjs/operators';
 import { InjectMetric } from '@willsoto/nestjs-prometheus';
 import { Counter, Histogram } from 'prom-client';
-import { shouldSkipMonitoring } from '../filters/filter-endpoints';
 
 @Injectable()
 export class MetricsInterceptor implements NestInterceptor {
-  private readonly logger = new Logger(MetricsInterceptor.name);
-
   constructor(
     @InjectMetric('http_requests_total')
-    private readonly requestCounter: Counter<string>,
-
+    private readonly requestsCounter: Counter<string>,
     @InjectMetric('http_request_duration_seconds')
     private readonly requestDuration: Histogram<string>,
-  ) {
-    this.logger.log('MetricsInterceptor inicializado');
-  }
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const request = context.switchToHttp().getRequest();
-    const method = request.method;
-    const path = request.route?.path || request.path;
-
-    // Normalizar o path - garantir que comece com barra e não tenha barra no final
-    const normalizedPath = '/' + path.replace(/^\/|\/$/g, '');
-
-    // Usar o mesmo filtro compartilhado
-    if (shouldSkipMonitoring(normalizedPath)) {
-      return next.handle();
-    }
+    const req = context.switchToHttp().getRequest();
+    const method = req.method;
+    const url = req.route?.path || req.url;
 
     const start = Date.now();
 
     return next.handle().pipe(
-      tap(() => {
-        const duration = (Date.now() - start) / 1000;
-        const statusCode = context.switchToHttp().getResponse().statusCode;
+      tap({
+        next: () => {
+          const statusCode = context
+            .switchToHttp()
+            .getResponse()
+            .statusCode.toString();
+          this.requestsCounter.inc({ method, path: url, statusCode });
 
-        // Incrementa o contador de requisições HTTP
-        this.requestCounter.inc({ method, path: normalizedPath, statusCode });
+          const duration = (Date.now() - start) / 1000;
+          this.requestDuration.observe(
+            { method, path: url, statusCode },
+            duration,
+          );
+        },
+        error: (err) => {
+          const statusCode = err.status || '500';
+          this.requestsCounter.inc({ method, path: url, statusCode });
 
-        // Registra a duração da requisição
-        this.requestDuration.observe(
-          { method, path: normalizedPath, statusCode },
-          duration,
-        );
-      }),
-      catchError((err) => {
-        const statusCode = err.status || 500;
-
-        // Incrementa o contador para requisições com erro
-        this.requestCounter.inc({ method, path: normalizedPath, statusCode });
-
-        throw err;
+          const duration = (Date.now() - start) / 1000;
+          this.requestDuration.observe(
+            { method, path: url, statusCode },
+            duration,
+          );
+        },
       }),
     );
   }
