@@ -404,4 +404,36 @@ Estas classes proporcionam:
 
 Esta abordagem de tratamento de exceções complementa os interceptors de métricas e traces, garantindo que a observabilidade da aplicação seja abrangente e contextualizada tanto para fluxos normais quanto para situações de erro.
 
+## URLs de Acesso
+
+### Aplicação e Documentação
+| Serviço | URL | Credenciais |
+|---------|-----|-------------|
+| Aplicação NestJS | http://localhost:3005 
+| Documentação Swagger | http://localhost:3005/api-docs | Não requer autenticação |
+| Endpoint de Métricas | http://localhost:3005/metrics | Basic Auth (prometheus:your_secure_password_here) |
+
+### Ferramentas de Observabilidade
+| Ferramenta | URL | Credenciais Padrão |
+|------------|-----|---------------------|
+| Grafana | http://localhost:3000 | admin:admin |
+| Prometheus | http://localhost:9090 | Não requer autenticação |
+| Tempo (Traces) | http://localhost:3200 | Não requer autenticação |
+| Loki (Logs) | http://localhost:3100 | Não requer autenticação (API only) |
+
+### Uso em Ambiente de Desenvolvimento
+
+Para acessar estes serviços em ambiente de desenvolvimento:
+
+- Inicie toda a stack com Docker Compose:
+   ```bash
+   docker-compose up -d
+   ```
+
+### Notas Importantes
+
+- O Grafana está configurado para autenticação obrigatória conforme definido no arquivo `docker-compose.yml`
+- As métricas do Prometheus são protegidas por autenticação básica para segurança adicional
+- A documentação Swagger fornece uma interface interativa completa para testar a API
+
 
