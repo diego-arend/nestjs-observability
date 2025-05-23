@@ -7,23 +7,36 @@
  * Array de caminhos a serem excluídos da coleta de métricas e traces
  */
 export const EXCLUDED_PATHS = [
+  '/metrics',
   '/health',
   '/healthcheck',
-  '/health-check',
-  '/metrics',
   '/api-docs',
-  '/swagger',
+  '/swagger-ui',
+  '/favicon.ico',
+  '/internal-metrics',
+  '/internal-metrics-disabled',
 ];
 
 /**
- * Verifica se o caminho deve ser excluído da coleta de métricas e traces
- * @param path Caminho da requisição
- * @returns true se o caminho deve ser filtrado (não monitorado)
+ * Verifica se um caminho deve ser ignorado para monitoramento
+ * @param path O caminho a ser verificado
+ * @returns true se o caminho deve ser ignorado, false caso contrário
  */
 export function shouldSkipMonitoring(path: string): boolean {
-  // Verifica se o path está na lista de exclusões ou se começa com algum dos prefixos
-  return EXCLUDED_PATHS.some(
-    (excludedPath) =>
-      path === excludedPath || path.startsWith(`${excludedPath}/`),
-  );
+  // Certifique-se de que o path comece com uma barra
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  // Verificar caminhos exatos
+  if (EXCLUDED_PATHS.includes(normalizedPath)) {
+    return true;
+  }
+
+  // Verificar prefixos de caminho
+  for (const excludedPath of EXCLUDED_PATHS) {
+    if (normalizedPath.startsWith(excludedPath + '/')) {
+      return true;
+    }
+  }
+
+  return false;
 }

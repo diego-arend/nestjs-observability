@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
 import { MetricsModule } from './metrics/metrics.module';
 import { LoggerModule } from './logger/logger.module';
 import { UsersModule } from './modules/users/users.module';
@@ -11,6 +11,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { AuthModule } from './modules/auth/auth.module';
 import { getTypeOrmConfig } from './infraestructure/database/postgres/datasource';
 import { MetricsInterceptor } from './interceptors/metrics.interceptor';
+import { HttpExceptionFilter } from './filters/http-exception.filter';
 
 @Module({
   imports: [
@@ -40,6 +41,10 @@ import { MetricsInterceptor } from './interceptors/metrics.interceptor';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter, // Adicionar o filtro global
     },
   ],
 })
